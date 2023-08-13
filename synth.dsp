@@ -77,22 +77,20 @@ bflevel = hslider("v:[2]config3/bflevel[style:knob]",6,0.1,20,0.01);
 voice(note,pres,vpres,but_x,but_y1) = vosc <: filt, filt2, bfs * bflevel :> _ * level
 with {
     even_harm = (acc_x+1)/2;
-    // pitchbend = but_x^3;
-    // freq = note2freq(note+pitchbend*bendRange);
     freq = note2freq(note);
-    //vosc = oscss(freq, even_harm);
     vosc = osc_white(freq);
     resetni = abs(note-note')<1.0;
 
-    but_y = but_y1 : LPF(K_f0(20),0.71);
+//    but_y = but_y1 : LPF(K_f0(20),0.71);
     pluck = but_y^2 : envdecay(select2(pres==0, halftime2fac_fast(0.01), 1));
     // decaytime = max(max(min(pluck * 2 - 0.4, 0.5+pluck), min(pres * 16, 0.5+pres)), 0.05) * 64 / note;
     decaytime = max(min(pres * 16, 0.5+pres*0.5), pedal * 0.2 + 0.01) * 64 / note;
     vpres1 = max(vpres - 0.02, 0);
     vplev = vpres1 / (0.5+vpres1);// + min(pres, 0.001);
     rotlev = min(pres * 2, max(rot_y^2+rot_z^2 - 0.005, 0));
-    // level = max(vplev : envdecay(resetni*halftime2fac_fast(decaytime)), rotlev) : LPF(K_f0(100), 1);// / (0.2 + note/24);
-    level = (vplev : envdecay(resetni*halftime2fac_fast(decaytime))) + 1.0 * pres^2 : LPF(K_f0(100), 1);// / (0.2 + note/24);
+    but_y = but_y1 : LPF(K_f0(20),0.71) : (_ * 0.5 + 0.5);
+//    level = (pres, but_y1) : get_amplitude : select_easing(but_y1) : LPF(K_f0(20),0.71);
+    level = (pres, but_y1) : get_amplitude : ease_in_out_quad : LPF(K_f0(20),0.71);
 
     vdacc = min(acc_abs,2):envdecay(accDecay);
     // K = K_f0(max(freq,minFreq)) + filtFF*(level*(1-max(-but_y,0))+max(vdacc-1,0))^2^2;
@@ -111,7 +109,10 @@ with {
     K3 = select2(rot_z>0, K_f0(1300), K_f0(2600)) * (1+0.5*abs(rot_z));
     b3 = BPF(K3, bfQ3) * abs(rot_z);
     bfs = _ <: b1, b2, b3 :> _;
+
+
 };
+
 
 voice_sine(note,pres,vpres,but_x,but_y) = vosc * level
 with {
@@ -121,41 +122,11 @@ with {
     level = pres : LPF(K_f0(20),1);
 };
 
-/*
-peak(f0, dBgain, Q) = biquad(a0,a1,a2,b1,b2)
-    with {
-        V = 10^(abs(dBgain) / 20);
-        K = tan(ma.PI * f0 / SR);
-
-        if (peakGain >= 0) {
-            norm = 1 / (1 + 1/Q * K + K * K);
-            a0 = (1 + V/Q * K + K * K) * norm;
-            a1 = 2 * (K * K - 1) * norm;
-            a2 = (1 - V/Q * K + K * K) * norm;
-            b1 = a1;
-            b2 = (1 - 1/Q * K + K * K) * norm;
-        }
-        else {
-            norm = 1 / (1 + V/Q * K + K * K);
-            a0 = (1 + 1/Q * K + K * K) * norm;
-            a1 = 2 * (K * K - 1) * norm;
-            a2 = (1 - 1/Q * K + K * K) * norm;
-            b1 = a1;
-            b2 = (1 - V/Q * K + K * K) * norm;
-        }
-    }
-*/
 
 seed = 1034790774; // no. 62351 in sequence
 impulse = _ ~ (_ == 0);
-//myrandom = (+(seed + 12345) *(1103515245)) ~ (-(seed));
-//myrandom = +(seed + 12345) ~ (*(1103515245) -(seed));
-//myrandom = seed : impulse : (_,_: + : +(12345)) ~ *(1103515245);
-//myrandom = (+(12345) *(1103515245)) ~ _;
-//myrandom = (impulse(seed-12345) + 12345) : + ~ (*(1103515245));
 RANDMAX = 2147483647.0;
 
-//myrandom = prefix(seed,0) : + ~ (*(1078318381));
 myrandom = ffunction(int rand_hoaglin (), "fastpow.h", "");
 
 mynoise = myrandom / RANDMAX;
@@ -200,19 +171,203 @@ with {
 // Body Filter
 bodyFilter = _ <: _ * .7,LPF(K_f0(bodyFreq),0.3) * 2 :> _;
 
-mystereoizer(periodDuration) = _ <: _,widthdelay : stereopanner
-with {
-    W = 0.5; //hslider("v:Spat/spatial width", 0.5, 0, 1, 0.01);
-    A = 0.5; //hslider("v:Spat/pan angle", 0.6, 0, 1, 0.01);
-    widthdelay = de.delay(4096,W*periodDuration/2);
-    stereopanner = _,_ : *(1.0-A), *(A);
-};
-
-stereo = mystereoizer(SR/440);
-
 vmeter(x) = attach(x, envelop(x) : vbargraph("[2]level", 0, 1));
 envelop = abs : max ~ -(20.0/SR);
 
+
+/*
+ * NEW CODE
+ */
+
+INIT = 0;
+ATTACK = 1;
+DECAY = 2;
+SUSTAIN = 3;
+RELEASE = 4;
+QUICK_RELEASE = 5;
+
+DECR = 0;
+INCR = 1;
+NEG = 0;
+POS = 1;
+
+// The time to remain in each state
+ATTACK_TIME = ATTACK_CENTER * ma.SR;
+DECAY_TIME = DECAY_CENTER * ma.SR;
+RELEASE_TIME = RELEASE_CENTER * ma.SR;
+SUSTAIN_TIME = SUSTAIN_CENTER * ma.SR; // This dictates how long it takes values to change while in sustain.
+QUICK_RELEASE_TIME = QUICK_CENTER * ma.SR;
+ATTACK_MOD = ATTACK_MOD_CENTER;
+
+ATTACK_TEST = 1.1;
+DECAY_TEST = 1.2;
+RELEASE_TEST = 5.4;
+SUSTAIN_TEST = 0.1;
+QUICK_TEST = 0.2;
+
+ATTACK_PLUCK = 0.19;
+DECAY_PLUCK = 0.10;
+RELEASE_PLUCK = 1.0;
+SUSTAIN_PLUCK = 0.3;
+QUICK_PLUCK = 0.01;
+
+ATTACK_CENTER = 0.1;
+DECAY_CENTER = 0.2;
+RELEASE_CENTER = 0.35;
+SUSTAIN_CENTER = 0.1;
+QUICK_CENTER = 0.01;
+
+ATTACK_FAST = 0.01;
+DECAY_FAST = 0.01;
+RELEASE_FAST = 0.01;
+SUSTAIN_FAST = 0.01;
+QUICK_FAST = 0.01;
+
+// How much attack goes over the target.
+ATTACK_MOD_PLUCK = 1.7;
+ATTACK_MOD_CENTER = 1.2;
+ATTACK_MOD_FAST = 1.0;
+
+// When to go from Decay to Release
+RELEASE_THRESHOLD = 0.05;
+
+get_state(prev_state, time_since, pressure, amplitude) = next_state with {
+    // State transitions.
+    from_init = ba.if(pressure >= RELEASE_THRESHOLD, ATTACK, INIT);
+    from_attack = ba.if(time_since >= ATTACK_TIME, DECAY, ATTACK);
+    from_decay = ba.if((time_since >= DECAY_TIME) | (pressure > amplitude), SUSTAIN, ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, DECAY));
+    from_sustain = ba.if(pressure < amplitude, DECAY, ba.if(pressure > amplitude, ATTACK, SUSTAIN));
+    from_release = ba.if((pressure <= 0) & (amplitude <= 0), INIT, ba.if(pressure > amplitude, QUICK_RELEASE, RELEASE));
+    from_quick_release = ba.if(time_since >= QUICK_RELEASE_TIME, INIT, QUICK_RELEASE);
+
+    next_state = ba.if(prev_state==INIT, from_init,
+                 ba.if(prev_state==ATTACK, from_attack,
+                 ba.if(prev_state==DECAY, from_decay,
+                 ba.if(prev_state==SUSTAIN, from_sustain,
+                 ba.if(prev_state==RELEASE, from_release, from_quick_release)))));
+};
+
+direction(prev_val, cur_val) = dir with {
+    dir = ba.if(cur_val > prev_val, POS, ba.if(cur_val < prev_val, NEG, dir));
+};
+
+inflection(prev_dir, cur_dir) = inflect with {
+    inflect = ba.if(prev_dir != cur_dir, 1, 0);
+};
+
+attack_curve(pressure, min_pressure, max_pressure, time_since) = new_amp with {
+    new_amp = min(max_pressure, min_pressure + ((max_pressure - min_pressure) * (time_since / ATTACK_TIME)));
+};
+
+decay_curve(pressure, min_pressure, max_pressure, time_since) = new_amp with {
+    new_amp = max(min_pressure, min_pressure + ((max_pressure - min_pressure) * (1 - (time_since / DECAY_TIME))));
+};
+
+release_curve(pressure, min_pressure, max_pressure, time_since) = new_amp with {
+    new_amp = max(0, max_pressure * (1 - (time_since / RELEASE_TIME)));
+};
+
+quick_release_curve(pressure, min_pressure, max_pressure, time_since) = new_amp with {
+    new_amp = max(0, max_pressure * (1 - (time_since / QUICK_RELEASE_TIME)));
+};
+
+amp_range(st,pres,amp) = (st, pres, amp) : range_rec ~ (_, _, _)  with {
+    range_rec(prev_state, prev_min, prev_max, cur_state, cur_pres, cur_amp) = (cur_state, new_min, new_max) with {
+        attack_pres = cur_pres * ATTACK_MOD;
+        new_min = ba.if(cur_state==INIT, cur_pres, ba.if(prev_state == cur_state, min(min(prev_min, cur_pres),cur_amp), min(cur_pres, cur_amp)));
+        new_max = ba.if(cur_state==INIT, cur_pres, 
+            ba.if(cur_state == ATTACK,
+                ba.if(prev_state == cur_state, max(max(prev_max, attack_pres),cur_amp), max(attack_pres, cur_amp)),
+                ba.if(prev_state == cur_state, max(max(prev_max, cur_pres),cur_amp), max(cur_pres, cur_amp))));
+    };
+};
+
+// Indicates the tick when the state began.
+time_changed(state) = (state, ba.time) : lock_on_state_change;
+
+lock_on_state_change(state, val) = (state, val) : (locker~(_, _)) : (!, _) with {
+    locker(prev_state, prev_val, cur_state, cur_val) = (cur_state, lock_val) with {
+        lock_val = ba.if(prev_state != cur_state, cur_val, prev_val);
+    };
+};
+
+get_amplitude = (get_amplitude_rec ~ (_, _)) : (!, _) with {
+    get_amplitude_rec(prev_state, prev_amp, pressure, throttle) = (new_state, amplitude) with {
+        pressures = amp_range(prev_state, pressure, prev_amp);
+        min_pressure = pressures : (!, _, !) : hbargraph("min_bg", 0, 1);
+        max_pressure = pressures : (!, !, _) : hbargraph("max_bg", 0, 1);
+        start_time = time_changed(prev_state);
+        time_since = (ba.time - start_time);
+        full_pressure = max_pressure;
+
+        amplitude = ba.selectn(6, prev_state, 0,
+                                    attack_curve(pressure, min_pressure, full_pressure, time_since),
+                                    decay_curve(pressure, min_pressure, full_pressure, time_since),
+                                    pressure,
+                                    release_curve(pressure, min_pressure, full_pressure, time_since),
+                                    quick_release_curve(pressure, min_pressure, full_pressure, time_since));
+        
+        new_state = get_state(prev_state, time_since, pressure, prev_amp);
+    };
+};
+
+
+hold_max_abs(val_in, threshold, hold_time) = (val_in, ba.time) : (hold_max_abs_rec ~ (_, _)) : (_, !) with {
+    hold_max_abs_rec(prev_val, prev_time, cur_val, cur_time) = (new_val, new_time) with {
+        new_val = ba.if(abs(cur_val) > abs(prev_val), cur_val, 
+                        ba.if((cur_val * prev_val < 0) & (abs(cur_val) > threshold), cur_val,
+                            ba.if(ba.time < prev_time + hold_time, cur_val, prev_val)));
+        new_time = ba.if(new_val == cur_val, cur_time, ba.time);
+    };
+};
+
+get_adsr(throttle) = (get_adsr_rec ~ (_, _)) : (!, _) with {
+    get_adsr_rec(prev_state, prev_amp, pressure, throttle) = (new_state, amplitude) with {
+        pressures = amp_range(prev_state, pressure, prev_amp);
+        min_pressure = pressures : (!, _, !) : hbargraph("min_bg", 0, 1);
+        max_pressure = pressures : (!, !, _) : hbargraph("max_bg", 0, 1);
+        start_time = time_changed(prev_state);
+        time_since = (ba.time - start_time);
+        full_pressure = max_pressure;
+
+        amplitude = ba.selectn(6, prev_state, 0,
+                                    attack_curve(pressure, min_pressure, full_pressure, time_since),
+                                    decay_curve(pressure, min_pressure, full_pressure, time_since),
+                                    pressure,
+                                    release_curve(pressure, min_pressure, full_pressure, time_since),
+                                    quick_release_curve(pressure, min_pressure, full_pressure, time_since));
+        
+        new_state = get_state(prev_state, time_since, pressure, prev_amp);
+    };
+};
+
+// Cubic Ease Out
+ease_out_cubic(t) = 1 - (1-t)^3;
+
+// Quad Ease In Out
+ease_in_out_quad(t) = ba.if(t < 0.5, 2*t*t, 1 - pow(-2*t + 2, 2)/2);
+
+// Average the easing function between
+//  negative and positive throttle.
+//  postive throttle is linear
+//  negative throttle is ease out cubic
+//  0 throttle is ease in out quad
+select_easing(throttle, pressure) = out_value with {
+    dist_from_zero = abs(throttle);
+    dist_from_one = 1 - dist_from_zero;
+    zero_case = ease_in_out_quad(pressure);
+    negative_case = ease_out_cubic(pressure) * dist_from_one + ease_out_cubic(pressure) * dist_from_zero;
+    positive_case = pressure * dist_from_one + ease_in_out_quad(pressure) * dist_from_zero;
+    out_value = ba.if(throttle < 0, negative_case, ba.if(throttle > 0, positive_case, zero_case));
+}; 
+
 process = hgroup("strisy",
         sum(n, voicecount, vgroup("v%n", (note,pres,vpres,but_x,but_y)) : voice) // : vgroup("v%n", vmeter))
-        * 1.37 : HPF(K_f0(80),1.31) );// : fi.dcblocker;: stereo:bodyFilter;
+        * 1.37 : HPF(K_f0(80),1.31) );
+
+
+/*
+Amp curve depends on y-axis and does not stick.
+
+Have a speed of shift for sustain too, instead of doing a new attack & decay
+*/
