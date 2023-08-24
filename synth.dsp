@@ -90,7 +90,8 @@ with {
     rotlev = min(pres * 2, max(rot_y^2+rot_z^2 - 0.005, 0));
     but_y = but_y1 : LPF(K_f0(20),0.71) : (_ * 0.5 + 0.5);
 //    level = (pres, but_y1) : get_amplitude : select_easing(but_y1) : LPF(K_f0(20),0.71);
-    level = (pres, but_y1) : get_amplitude : ease_in_out_quad : LPF(K_f0(20),0.71);
+    throttle = ramp_max_abs(0.05, 1.0, but_y1);
+    level = (pres, throttle) : get_amplitude : LPF(K_f0(20),0.71);
 
     vdacc = min(acc_abs,2):envdecay(accDecay);
     // K = K_f0(max(freq,minFreq)) + filtFF*(level*(1-max(-but_y,0))+max(vdacc-1,0))^2^2;
@@ -182,9 +183,10 @@ envelop = abs : max ~ -(20.0/SR);
 INIT = 0;
 ATTACK = 1;
 DECAY = 2;
-SUSTAIN = 3;
-RELEASE = 4;
-QUICK_RELEASE = 5;
+RELEASE = 3;
+QUICK_RELEASE = 4;
+SUSTAIN_INCR = 5;
+SUSTAIN_DECR = 6;
 
 DECR = 0;
 INCR = 1;
@@ -192,59 +194,58 @@ NEG = 0;
 POS = 1;
 
 // The time to remain in each state
-ATTACK_TIME = ATTACK_CENTER * ma.SR;
-DECAY_TIME = DECAY_CENTER * ma.SR;
-RELEASE_TIME = RELEASE_CENTER * ma.SR;
-SUSTAIN_TIME = SUSTAIN_CENTER * ma.SR; // This dictates how long it takes values to change while in sustain.
-QUICK_RELEASE_TIME = QUICK_CENTER * ma.SR;
+ATTACK_TIME = (hslider("Attack", 0.5, 0.01, 5.0, 0.001)) * ma.SR;
+DECAY_TIME = (hslider("Decay", 0.5, 0.01, 5.0, 0.001)) * ma.SR;
+RELEASE_TIME = (hslider("Release", 0.5, 0.01, 5.0, 0.001)) * ma.SR;
+SUSTAIN_TIME = (hslider("Sustain T", 0.5, 0.01, 5.0, 0.001)) * ma.SR;
+QUICK_RELEASE_TIME = (hslider("Quick", 0.5, 0.01, 5.0, 0.001)) * ma.SR;
 ATTACK_MOD = ATTACK_MOD_CENTER;
 
-ATTACK_TEST = 1.1;
-DECAY_TEST = 1.2;
-RELEASE_TEST = 5.4;
-SUSTAIN_TEST = 0.1;
-QUICK_TEST = 0.2;
+ATTACK_PLUCK = 0.39 * ma.SR;
+DECAY_PLUCK = 0.10 * ma.SR;
+RELEASE_PLUCK = 8.0 * ma.SR;
+SUSTAIN_PLUCK = 1.0 * ma.SR;
+QUICK_PLUCK = 0.01 * ma.SR;
 
-ATTACK_PLUCK = 0.19;
-DECAY_PLUCK = 0.10;
-RELEASE_PLUCK = 1.0;
-SUSTAIN_PLUCK = 0.3;
-QUICK_PLUCK = 0.01;
+ATTACK_CENTER = 0.1 * ma.SR;
+DECAY_CENTER = 0.2 * ma.SR;
+RELEASE_CENTER = 0.35 * ma.SR;
+SUSTAIN_CENTER = 0.5 * ma.SR;
+QUICK_CENTER = 0.01 * ma.SR;
 
-ATTACK_CENTER = 0.1;
-DECAY_CENTER = 0.2;
-RELEASE_CENTER = 0.35;
-SUSTAIN_CENTER = 0.1;
-QUICK_CENTER = 0.01;
-
-ATTACK_FAST = 0.01;
-DECAY_FAST = 0.01;
-RELEASE_FAST = 0.01;
-SUSTAIN_FAST = 0.01;
-QUICK_FAST = 0.01;
+ATTACK_FAST = 0.01 * ma.SR;
+DECAY_FAST = 0.01 * ma.SR;
+RELEASE_FAST = 0.01 * ma.SR;
+SUSTAIN_FAST = 0.01 * ma.SR;
+QUICK_FAST = 0.01 * ma.SR;
 
 // How much attack goes over the target.
 ATTACK_MOD_PLUCK = 1.7;
 ATTACK_MOD_CENTER = 1.2;
-ATTACK_MOD_FAST = 1.0;
+ATTACK_MOD_FAST = 1.1;
 
 // When to go from Decay to Release
-RELEASE_THRESHOLD = 0.05;
+RELEASE_THRESHOLD = 0.01;
 
-get_state(prev_state, time_since, pressure, amplitude) = next_state with {
+get_state(prev_state, time_since, pressure, max_pressure, min_pressure, amplitude, attack_mod) = next_state with {
     // State transitions.
     from_init = ba.if(pressure >= RELEASE_THRESHOLD, ATTACK, INIT);
-    from_attack = ba.if(time_since >= ATTACK_TIME, DECAY, ATTACK);
-    from_decay = ba.if((time_since >= DECAY_TIME) | (pressure > amplitude), SUSTAIN, ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, DECAY));
-    from_sustain = ba.if(pressure < amplitude, DECAY, ba.if(pressure > amplitude, ATTACK, SUSTAIN));
+    from_attack = ba.if((time_since >= (0.1 * ma.SR)) & (amplitude >= (max_pressure * attack_mod)), DECAY, ATTACK);
+    from_decay = ba.if(pressure >= amplitude, SUSTAIN_INCR, ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, DECAY));
+    from_sustain_incr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure <= amplitude, SUSTAIN_DECR, SUSTAIN_INCR));
+    from_sustain_decr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, SUSTAIN_DECR));
     from_release = ba.if((pressure <= 0) & (amplitude <= 0), INIT, ba.if(pressure > amplitude, QUICK_RELEASE, RELEASE));
-    from_quick_release = ba.if(time_since >= QUICK_RELEASE_TIME, INIT, QUICK_RELEASE);
+    from_quick_release = ba.if(amplitude <= RELEASE_THRESHOLD, INIT, QUICK_RELEASE);
 
-    next_state = ba.if(prev_state==INIT, from_init,
-                 ba.if(prev_state==ATTACK, from_attack,
-                 ba.if(prev_state==DECAY, from_decay,
-                 ba.if(prev_state==SUSTAIN, from_sustain,
-                 ba.if(prev_state==RELEASE, from_release, from_quick_release)))));
+    next_state = ba.selectn(7, prev_state,
+                               from_init,
+                               from_attack,
+                               from_decay,
+                               from_release,
+                               from_quick_release,
+                               from_sustain_incr,
+                               from_sustain_decr);
+
 };
 
 direction(prev_val, cur_val) = dir with {
@@ -255,25 +256,9 @@ inflection(prev_dir, cur_dir) = inflect with {
     inflect = ba.if(prev_dir != cur_dir, 1, 0);
 };
 
-attack_curve(pressure, min_pressure, max_pressure, time_since) = new_amp with {
-    new_amp = min(max_pressure, min_pressure + ((max_pressure - min_pressure) * (time_since / ATTACK_TIME)));
-};
-
-decay_curve(pressure, min_pressure, max_pressure, time_since) = new_amp with {
-    new_amp = max(min_pressure, min_pressure + ((max_pressure - min_pressure) * (1 - (time_since / DECAY_TIME))));
-};
-
-release_curve(pressure, min_pressure, max_pressure, time_since) = new_amp with {
-    new_amp = max(0, max_pressure * (1 - (time_since / RELEASE_TIME)));
-};
-
-quick_release_curve(pressure, min_pressure, max_pressure, time_since) = new_amp with {
-    new_amp = max(0, max_pressure * (1 - (time_since / QUICK_RELEASE_TIME)));
-};
-
-amp_range(st,pres,amp) = (st, pres, amp) : range_rec ~ (_, _, _)  with {
+amp_range(st,pres,amp, attack_mod) = (st, pres, amp) : range_rec ~ (_, _, _)  with {
     range_rec(prev_state, prev_min, prev_max, cur_state, cur_pres, cur_amp) = (cur_state, new_min, new_max) with {
-        attack_pres = cur_pres * ATTACK_MOD;
+        attack_pres = cur_pres * attack_mod;
         new_min = ba.if(cur_state==INIT, cur_pres, ba.if(prev_state == cur_state, min(min(prev_min, cur_pres),cur_amp), min(cur_pres, cur_amp)));
         new_max = ba.if(cur_state==INIT, cur_pres, 
             ba.if(cur_state == ATTACK,
@@ -291,28 +276,45 @@ lock_on_state_change(state, val) = (state, val) : (locker~(_, _)) : (!, _) with 
     };
 };
 
-get_amplitude = (get_amplitude_rec ~ (_, _)) : (!, _) with {
-    get_amplitude_rec(prev_state, prev_amp, pressure, throttle) = (new_state, amplitude) with {
-        pressures = amp_range(prev_state, pressure, prev_amp);
+get_amplitude(amp_in, throttle) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
+    get_amplitude_rec(prev_state, prev_amp, pressure) = (new_state, amplitude) with {
+        pressures = amp_range(prev_state, pressure, prev_amp, attack_mod);
         min_pressure = pressures : (!, _, !) : hbargraph("min_bg", 0, 1);
         max_pressure = pressures : (!, !, _) : hbargraph("max_bg", 0, 1);
         start_time = time_changed(prev_state);
         time_since = (ba.time - start_time);
         full_pressure = max_pressure;
+        attack_mod = select3(ma.signum(throttle) + 1, ATTACK_MOD_PLUCK, ATTACK_MOD_CENTER, ATTACK_MOD_FAST);
+        time_base = get_time_base(prev_state, throttle);
 
-        amplitude = ba.selectn(6, prev_state, 0,
-                                    attack_curve(pressure, min_pressure, full_pressure, time_since),
-                                    decay_curve(pressure, min_pressure, full_pressure, time_since),
-                                    pressure,
-                                    release_curve(pressure, min_pressure, full_pressure, time_since),
-                                    quick_release_curve(pressure, min_pressure, full_pressure, time_since));
-        
-        new_state = get_state(prev_state, time_since, pressure, prev_amp);
+        base_amplitude = calculate_curve(prev_state, pressure, throttle, time_base, attack_mod);
+        amplitude = base_amplitude; // ease_in_out_quad  
+        new_state = get_state(prev_state, time_since, pressure, min_pressure, max_pressure, prev_amp, attack_mod) : hbargraph("State", 0, 6);
     };
 };
 
+get_time_base(state, throttle) = time_base with {
+    center = ba.selectn(7, state, 0, ATTACK_CENTER, DECAY_CENTER, RELEASE_CENTER, QUICK_CENTER, SUSTAIN_CENTER, SUSTAIN_CENTER);
+    pluck = ba.selectn(7, state, 0, ATTACK_PLUCK, DECAY_PLUCK, RELEASE_PLUCK, QUICK_PLUCK, SUSTAIN_PLUCK, SUSTAIN_PLUCK);
+    fast = ba.selectn(7, state, 0, ATTACK_FAST, DECAY_FAST, RELEASE_FAST, QUICK_FAST, SUSTAIN_FAST, SUSTAIN_FAST);
+    dist_from_zero = abs(throttle);
+    dist_from_one = 1 - dist_from_zero;
 
-hold_max_abs(val_in, threshold, hold_time) = (val_in, ba.time) : (hold_max_abs_rec ~ (_, _)) : (_, !) with {
+    time_base = (select3(ma.signum(throttle) + 1, pluck, center, fast) * dist_from_zero + center * dist_from_one) : hbargraph("time_base", 0, 3); 
+};
+ 
+calculate_curve(state, pressure, throttle, time_base, attack_mod) = curve_res with {
+    target = ba.if(state == ATTACK, pressure * attack_mod, pressure);
+    curve_res = ba.ramp(time_base, target);
+
+    /*
+    zero_case = ease_in_out_quad(pressure);
+    negative_case = ease_out_cubic(pressure) * dist_from_one + ease_out_cubic(pressure) * dist_from_zero;
+    positive_case = pressure * dist_from_one + ease_in_out_quad(pressure) * dist_from_zero;       
+    */
+};
+
+hold_max_abs(threshold, hold_time, val_in) = (val_in, ba.time) : (hold_max_abs_rec ~ (_, _)) : (_, !) with {
     hold_max_abs_rec(prev_val, prev_time, cur_val, cur_time) = (new_val, new_time) with {
         new_val = ba.if(abs(cur_val) > abs(prev_val), cur_val, 
                         ba.if((cur_val * prev_val < 0) & (abs(cur_val) > threshold), cur_val,
@@ -321,24 +323,15 @@ hold_max_abs(val_in, threshold, hold_time) = (val_in, ba.time) : (hold_max_abs_r
     };
 };
 
-get_adsr(throttle) = (get_adsr_rec ~ (_, _)) : (!, _) with {
-    get_adsr_rec(prev_state, prev_amp, pressure, throttle) = (new_state, amplitude) with {
-        pressures = amp_range(prev_state, pressure, prev_amp);
-        min_pressure = pressures : (!, _, !) : hbargraph("min_bg", 0, 1);
-        max_pressure = pressures : (!, !, _) : hbargraph("max_bg", 0, 1);
-        start_time = time_changed(prev_state);
-        time_since = (ba.time - start_time);
-        full_pressure = max_pressure;
-
-        amplitude = ba.selectn(6, prev_state, 0,
-                                    attack_curve(pressure, min_pressure, full_pressure, time_since),
-                                    decay_curve(pressure, min_pressure, full_pressure, time_since),
-                                    pressure,
-                                    release_curve(pressure, min_pressure, full_pressure, time_since),
-                                    quick_release_curve(pressure, min_pressure, full_pressure, time_since));
-        
-        new_state = get_state(prev_state, time_since, pressure, prev_amp);
-    };
+ramp_max_abs(threshold, hold_time, val_in) = val_out with {
+    abs_in = abs(val_in);
+    same_signum(ramp_val) = (ma.signum(val_in) == ma.signum(ramp_val));
+    change_rate(ramp_val) = ba.if(same_signum(ramp_val), 
+                                ba.if(abs_in >= abs(ramp_val), ma.SR/10,ma.SR*hold_time),
+                                ba.if(abs_in >= threshold,ma.SR/10,ma.SR*hold_time));
+    target_value = val_in;
+    ramp_fun(cr, val) = ba.ramp(cr, val);
+    val_out = val_in : ramp_fun ~ change_rate;
 };
 
 // Cubic Ease Out
@@ -361,13 +354,30 @@ select_easing(throttle, pressure) = out_value with {
     out_value = ba.if(throttle < 0, negative_case, ba.if(throttle > 0, positive_case, zero_case));
 }; 
 
+
+amp_in = hslider("Amplitude", 0, 0, 1.0, 0.01);
+throttle_in = hslider("Throttle", 0, -1.0, 1.0, 0.01);
+
+//process = (amp_in, throttle_in) : (_, hold_max_abs(0.01, RELEASE_PLUCK)) : get_amplitude;
+
+// HOLD MAX ABS won't work on it's own.  When it changes it will make and abrupt change in the volume,
+//  I need a way to rig it to change over time, it can be a short time but it can't just flip... Can it?
+//  it isn't changing something directly like easing, it's just changing how fast it's moving, so, maybe?
+//  Nope. It'll drop because all those numbers are being calculated on the fly based on the curves, so it could go instantly to zero
+//  not frosty.
+
 process = hgroup("strisy",
         sum(n, voicecount, vgroup("v%n", (note,pres,vpres,but_x,but_y)) : voice) // : vgroup("v%n", vmeter))
         * 1.37 : HPF(K_f0(80),1.31) );
 
-
 /*
 Amp curve depends on y-axis and does not stick.
 
-Have a speed of shift for sustain too, instead of doing a new attack & decay
+Have a speed of shift for sustain too, instead of doing a new attack & decay.
+This can't just be done with sustain alone because we depend on min max, we need to
+add a sus_increase and a sustain_decrease state for it to work.
+
+2023/08/21
+Still having trouble getting the attack to time right. It looks like it just isn't holding long
+enough.
 */
