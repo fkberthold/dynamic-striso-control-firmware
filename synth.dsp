@@ -90,7 +90,7 @@ with {
     rotlev = min(pres * 2, max(rot_y^2+rot_z^2 - 0.005, 0));
     but_y = but_y1 : LPF(K_f0(20),0.71) : (_ * 0.5 + 0.5);
 //    level = (pres, but_y1) : get_amplitude : select_easing(but_y1) : LPF(K_f0(20),0.71);
-    throttle = ramp_max_abs(0.05, 1.0, but_y1);
+    throttle = ramp_max_abs(0.2, 1.0, min(but_y1 * 2, 1.0));
     level = (pres, throttle) : get_amplitude : LPF(K_f0(20),0.71);
 
     vdacc = min(acc_abs,2):envdecay(accDecay);
@@ -201,16 +201,16 @@ SUSTAIN_TIME = (hslider("Sustain T", 0.5, 0.01, 5.0, 0.001)) * ma.SR;
 QUICK_RELEASE_TIME = (hslider("Quick", 0.5, 0.01, 5.0, 0.001)) * ma.SR;
 ATTACK_MOD = ATTACK_MOD_CENTER;
 
-ATTACK_PLUCK = 0.39 * ma.SR;
-DECAY_PLUCK = 0.10 * ma.SR;
+ATTACK_PLUCK = 0.05 * ma.SR;
+DECAY_PLUCK = 0.05 * ma.SR;
 RELEASE_PLUCK = 8.0 * ma.SR;
-SUSTAIN_PLUCK = 1.0 * ma.SR;
+SUSTAIN_PLUCK = 2.0 * ma.SR;
 QUICK_PLUCK = 0.01 * ma.SR;
 
-ATTACK_CENTER = 0.1 * ma.SR;
-DECAY_CENTER = 0.2 * ma.SR;
-RELEASE_CENTER = 0.35 * ma.SR;
-SUSTAIN_CENTER = 0.5 * ma.SR;
+ATTACK_CENTER = 0.2 * ma.SR;
+DECAY_CENTER = 0.1 * ma.SR;
+RELEASE_CENTER = 1.0 * ma.SR;
+SUSTAIN_CENTER = 1.0 * ma.SR;
 QUICK_CENTER = 0.01 * ma.SR;
 
 ATTACK_FAST = 0.01 * ma.SR;
@@ -221,8 +221,8 @@ QUICK_FAST = 0.01 * ma.SR;
 
 // How much attack goes over the target.
 ATTACK_MOD_PLUCK = 1.7;
-ATTACK_MOD_CENTER = 1.2;
-ATTACK_MOD_FAST = 1.1;
+ATTACK_MOD_CENTER = 1.3;
+ATTACK_MOD_FAST = 1.0;
 
 // When to go from Decay to Release
 RELEASE_THRESHOLD = 0.01;
@@ -288,7 +288,7 @@ get_amplitude(amp_in, throttle) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, 
         time_base = get_time_base(prev_state, throttle);
 
         base_amplitude = calculate_curve(prev_state, pressure, throttle, time_base, attack_mod);
-        amplitude = base_amplitude; // ease_in_out_quad  
+        amplitude = base_amplitude; // : (_ - min_pressure) * (max_pressure - min_pressure) : ease_in_out_quad : (_ + min_pressure);
         new_state = get_state(prev_state, time_since, pressure, min_pressure, max_pressure, prev_amp, attack_mod) : hbargraph("State", 0, 6);
     };
 };
