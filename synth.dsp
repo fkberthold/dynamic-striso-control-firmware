@@ -89,7 +89,6 @@ with {
     vplev = vpres1 / (0.5+vpres1);// + min(pres, 0.001);
     rotlev = min(pres * 2, max(rot_y^2+rot_z^2 - 0.005, 0));
     but_y = but_y1 : LPF(K_f0(20),0.71) : (_ * 0.5 + 0.5);
-//    level = (pres, but_y1) : get_amplitude : select_easing(but_y1) : LPF(K_f0(20),0.71);
     throttle = ramp_max_abs(0.2, 1.0, min(but_y1 * 2, 1.0));
     level = (pres, throttle) : get_amplitude : LPF(K_f0(20),0.71);
 
@@ -225,7 +224,7 @@ ATTACK_MOD_CENTER = 1.3;
 ATTACK_MOD_FAST = 1.0;
 
 // When to go from Decay to Release
-RELEASE_THRESHOLD = 0.01;
+RELEASE_THRESHOLD = 0.05;
 
 get_state(prev_state, time_since, pressure, max_pressure, min_pressure, amplitude, attack_mod) = next_state with {
     // State transitions.
@@ -234,7 +233,7 @@ get_state(prev_state, time_since, pressure, max_pressure, min_pressure, amplitud
     from_decay = ba.if(pressure >= amplitude, SUSTAIN_INCR, ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, DECAY));
     from_sustain_incr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure <= amplitude, SUSTAIN_DECR, SUSTAIN_INCR));
     from_sustain_decr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, SUSTAIN_DECR));
-    from_release = ba.if((pressure <= 0) & (amplitude <= 0), INIT, ba.if(pressure > amplitude, QUICK_RELEASE, RELEASE));
+    from_release = ba.if((pressure <= 0) & (amplitude <= 0), INIT, ba.if(pressure > amplitude, ATTACK, RELEASE));
     from_quick_release = ba.if(amplitude <= RELEASE_THRESHOLD, INIT, QUICK_RELEASE);
 
     next_state = ba.selectn(7, prev_state,
@@ -288,7 +287,7 @@ get_amplitude(amp_in, throttle) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, 
         time_base = get_time_base(prev_state, throttle);
 
         base_amplitude = calculate_curve(prev_state, pressure, throttle, time_base, attack_mod);
-        amplitude = base_amplitude; // : (_ - min_pressure) * (max_pressure - min_pressure) : ease_in_out_quad : (_ + min_pressure);
+        amplitude = base_amplitude;
         new_state = get_state(prev_state, time_since, pressure, min_pressure, max_pressure, prev_amp, attack_mod) : hbargraph("State", 0, 6);
     };
 };
@@ -326,9 +325,15 @@ hold_max_abs(threshold, hold_time, val_in) = (val_in, ba.time) : (hold_max_abs_r
 ramp_max_abs(threshold, hold_time, val_in) = val_out with {
     abs_in = abs(val_in);
     same_signum(ramp_val) = (ma.signum(val_in) == ma.signum(ramp_val));
-    change_rate(ramp_val) = ba.if(same_signum(ramp_val), 
+
+    change_rate(ramp_val) = ba.if(same_signum(ramp_val),
                                 ba.if(abs_in >= abs(ramp_val), ma.SR/10,ma.SR*hold_time),
                                 ba.if(abs_in >= threshold,ma.SR/10,ma.SR*hold_time));
+
+//    change_rate(ramp_val) = ba.if((abs(ramp_val) < threshold) && (abs_in < threshold), ma.SR/20,
+//                                ba.if(same_signum(ramp_val), 
+//                                    ba.if(abs_in >= abs(ramp_val), ma.SR/10,ma.SR*hold_time),
+//                                    ba.if(abs_in >= threshold,ma.SR/10,ma.SR*hold_time)));
     target_value = val_in;
     ramp_fun(cr, val) = ba.ramp(cr, val);
     val_out = val_in : ramp_fun ~ change_rate;
@@ -340,11 +345,6 @@ ease_out_cubic(t) = 1 - (1-t)^3;
 // Quad Ease In Out
 ease_in_out_quad(t) = ba.if(t < 0.5, 2*t*t, 1 - pow(-2*t + 2, 2)/2);
 
-// Average the easing function between
-//  negative and positive throttle.
-//  postive throttle is linear
-//  negative throttle is ease out cubic
-//  0 throttle is ease in out quad
 select_easing(throttle, pressure) = out_value with {
     dist_from_zero = abs(throttle);
     dist_from_one = 1 - dist_from_zero;
@@ -371,13 +371,10 @@ process = hgroup("strisy",
         * 1.37 : HPF(K_f0(80),1.31) );
 
 /*
-Amp curve depends on y-axis and does not stick.
-
-Have a speed of shift for sustain too, instead of doing a new attack & decay.
-This can't just be done with sustain alone because we depend on min max, we need to
-add a sus_increase and a sustain_decrease state for it to work.
-
 2023/08/21
-Still having trouble getting the attack to time right. It looks like it just isn't holding long
+FIXED: Still having trouble getting the attack to time right. It looks like it just isn't holding long
 enough.
+
+2023/08/25
+FIXED: Fix the decay, it's replacing the release if it takes too long.
 */
