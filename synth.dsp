@@ -212,16 +212,16 @@ RELEASE_CENTER = 1.0 * ma.SR;
 SUSTAIN_CENTER = 1.0 * ma.SR;
 QUICK_CENTER = 0.01 * ma.SR;
 
-ATTACK_FAST = 0.01 * ma.SR;
-DECAY_FAST = 0.01 * ma.SR;
+ATTACK_FAST = 0.1 * ma.SR;
+DECAY_FAST = 0.1 * ma.SR;
 RELEASE_FAST = 0.01 * ma.SR;
 SUSTAIN_FAST = 0.01 * ma.SR;
 QUICK_FAST = 0.01 * ma.SR;
 
 // How much attack goes over the target.
 ATTACK_MOD_PLUCK = 1.7;
-ATTACK_MOD_CENTER = 1.3;
-ATTACK_MOD_FAST = 1.0;
+ATTACK_MOD_CENTER = 1.6;
+ATTACK_MOD_FAST = 1.6;
 
 // When to go from Decay to Release
 RELEASE_THRESHOLD = 0.05;
@@ -345,15 +345,9 @@ ease_out_cubic(t) = 1 - (1-t)^3;
 // Quad Ease In Out
 ease_in_out_quad(t) = ba.if(t < 0.5, 2*t*t, 1 - pow(-2*t + 2, 2)/2);
 
-select_easing(throttle, pressure) = out_value with {
-    dist_from_zero = abs(throttle);
-    dist_from_one = 1 - dist_from_zero;
-    zero_case = ease_in_out_quad(pressure);
-    negative_case = ease_out_cubic(pressure) * dist_from_one + ease_out_cubic(pressure) * dist_from_zero;
-    positive_case = pressure * dist_from_one + ease_in_out_quad(pressure) * dist_from_zero;
-    out_value = ba.if(throttle < 0, negative_case, ba.if(throttle > 0, positive_case, zero_case));
-}; 
-
+// Sharktooth wave as used by the minimoog,
+//  75% triangle, 25% sawtooth
+sharktooth(t) = ba.if(t < 0.75, 4*t, 4*(t-0.75));
 
 amp_in = hslider("Amplitude", 0, 0, 1.0, 0.01);
 throttle_in = hslider("Throttle", 0, -1.0, 1.0, 0.01);
@@ -377,4 +371,10 @@ enough.
 
 2023/08/25
 FIXED: Fix the decay, it's replacing the release if it takes too long.
+
+2023/08/28
+From conversation with weinski:
+* TODO: Attack level controlled by strike velocity
+* TODO: Higher attack, slower decay on high y value
+* TODO: Exponential decay on release
 */
