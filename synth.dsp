@@ -90,7 +90,7 @@ with {
     rotlev = min(pres * 2, max(rot_y^2+rot_z^2 - 0.005, 0));
     but_y = but_y1 : LPF(K_f0(20),0.71) : (_ * 0.5 + 0.5);
     throttle = ramp_max_abs(0.2, 1.0, min(but_y1 * 2, 1.0));
-    level = (pres, throttle) : get_amplitude : LPF(K_f0(20),0.71);
+    level = (pres, vpres1, throttle) : get_amplitude : LPF(K_f0(20),0.71);
 
     vdacc = min(acc_abs,2):envdecay(accDecay);
     // K = K_f0(max(freq,minFreq)) + filtFF*(level*(1-max(-but_y,0))+max(vdacc-1,0))^2^2;
@@ -109,8 +109,6 @@ with {
     K3 = select2(rot_z>0, K_f0(1300), K_f0(2600)) * (1+0.5*abs(rot_z));
     b3 = BPF(K3, bfQ3) * abs(rot_z);
     bfs = _ <: b1, b2, b3 :> _;
-
-
 };
 
 
@@ -193,31 +191,43 @@ NEG = 0;
 POS = 1;
 
 // The time to remain in each state
-ATTACK_TIME = (hslider("Attack", 0.5, 0.01, 5.0, 0.001)) * ma.SR;
-DECAY_TIME = (hslider("Decay", 0.5, 0.01, 5.0, 0.001)) * ma.SR;
-RELEASE_TIME = (hslider("Release", 0.5, 0.01, 5.0, 0.001)) * ma.SR;
-SUSTAIN_TIME = (hslider("Sustain T", 0.5, 0.01, 5.0, 0.001)) * ma.SR;
-QUICK_RELEASE_TIME = (hslider("Quick", 0.5, 0.01, 5.0, 0.001)) * ma.SR;
-ATTACK_MOD = ATTACK_MOD_CENTER;
+ATTACK_PLUCK = 0.1 * ma.SR;
+DECAY_PLUCK = 0.3 * ma.SR;
+RELEASE_PLUCK = 8.0;
+SUSTAIN_PLUCK = 2.0 * ma.SR;
+QUICK_PLUCK = 0.01 * ma.SR;
 
+ATTACK_CENTER = 0.1 * ma.SR;
+DECAY_CENTER = 0.3 * ma.SR;
+RELEASE_CENTER = 2.0;
+SUSTAIN_CENTER = 1.0 * ma.SR;
+QUICK_CENTER = 0.01 * ma.SR;
+
+ATTACK_FAST = 0.1 * ma.SR;
+DECAY_FAST = 0.3 * ma.SR;
+RELEASE_FAST = 0.01;
+SUSTAIN_FAST = 0.01 * ma.SR;
+QUICK_FAST = 0.01 * ma.SR;
+
+/*
 ATTACK_PLUCK = 0.05 * ma.SR;
 DECAY_PLUCK = 0.05 * ma.SR;
-RELEASE_PLUCK = 8.0 * ma.SR;
+RELEASE_PLUCK = 8.0;
 SUSTAIN_PLUCK = 2.0 * ma.SR;
 QUICK_PLUCK = 0.01 * ma.SR;
 
 ATTACK_CENTER = 0.2 * ma.SR;
 DECAY_CENTER = 0.1 * ma.SR;
-RELEASE_CENTER = 1.0 * ma.SR;
+RELEASE_CENTER = 1.0;
 SUSTAIN_CENTER = 1.0 * ma.SR;
 QUICK_CENTER = 0.01 * ma.SR;
 
 ATTACK_FAST = 0.1 * ma.SR;
 DECAY_FAST = 0.1 * ma.SR;
-RELEASE_FAST = 0.01 * ma.SR;
+RELEASE_FAST = 0.01;
 SUSTAIN_FAST = 0.01 * ma.SR;
 QUICK_FAST = 0.01 * ma.SR;
-
+*/
 // How much attack goes over the target.
 ATTACK_MOD_PLUCK = 1.7;
 ATTACK_MOD_CENTER = 1.6;
@@ -233,7 +243,7 @@ get_state(prev_state, time_since, pressure, max_pressure, min_pressure, amplitud
     from_decay = ba.if(pressure >= amplitude, SUSTAIN_INCR, ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, DECAY));
     from_sustain_incr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure <= amplitude, SUSTAIN_DECR, SUSTAIN_INCR));
     from_sustain_decr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, SUSTAIN_DECR));
-    from_release = ba.if((pressure <= 0) & (amplitude <= 0), INIT, ba.if(pressure > amplitude, ATTACK, RELEASE));
+    from_release = ba.if((pressure <= 0) & (amplitude <= 0.01), QUICK_RELEASE, ba.if(pressure > amplitude, ATTACK, RELEASE));
     from_quick_release = ba.if(amplitude <= RELEASE_THRESHOLD, INIT, QUICK_RELEASE);
 
     next_state = ba.selectn(7, prev_state,
@@ -275,7 +285,7 @@ lock_on_state_change(state, val) = (state, val) : (locker~(_, _)) : (!, _) with 
     };
 };
 
-get_amplitude(amp_in, throttle) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
+get_amplitude(amp_in, vpres, throttle) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
     get_amplitude_rec(prev_state, prev_amp, pressure) = (new_state, amplitude) with {
         pressures = amp_range(prev_state, pressure, prev_amp, attack_mod);
         min_pressure = pressures : (!, _, !) : hbargraph("min_bg", 0, 1);
@@ -286,7 +296,7 @@ get_amplitude(amp_in, throttle) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, 
         attack_mod = select3(ma.signum(throttle) + 1, ATTACK_MOD_PLUCK, ATTACK_MOD_CENTER, ATTACK_MOD_FAST);
         time_base = get_time_base(prev_state, throttle);
 
-        base_amplitude = calculate_curve(prev_state, pressure, throttle, time_base, attack_mod);
+        base_amplitude = calculate_curve(prev_state, pressure, vpres, throttle, time_base, attack_mod, max_pressure, time_since);
         amplitude = base_amplitude;
         new_state = get_state(prev_state, time_since, pressure, min_pressure, max_pressure, prev_amp, attack_mod) : hbargraph("State", 0, 6);
     };
@@ -302,9 +312,11 @@ get_time_base(state, throttle) = time_base with {
     time_base = (select3(ma.signum(throttle) + 1, pluck, center, fast) * dist_from_zero + center * dist_from_one) : hbargraph("time_base", 0, 3); 
 };
  
-calculate_curve(state, pressure, throttle, time_base, attack_mod) = curve_res with {
-    target = ba.if(state == ATTACK, pressure * attack_mod, pressure);
-    curve_res = ba.ramp(time_base, target);
+calculate_curve(state, pressure, vpres, throttle, time_base, attack_mod, max_pressure, time_since) = curve_res with {
+    target = ba.if(state == ATTACK, min(1, (pressure) * attack_mod), pressure);
+    exp_decay_constant = -1 * (log(0.05) / time_base);
+    release_curve = ba.if(state == RELEASE, exp_decay(max_pressure, exp_decay_constant, time_since / ma.SR), 0);
+    curve_res = ba.if(state == RELEASE, release_curve, ba.ramp(time_base, target));
 
     /*
     zero_case = ease_in_out_quad(pressure);
@@ -351,6 +363,13 @@ sharktooth(t) = ba.if(t < 0.75, 4*t, 4*(t-0.75));
 
 amp_in = hslider("Amplitude", 0, 0, 1.0, 0.01);
 throttle_in = hslider("Throttle", 0, -1.0, 1.0, 0.01);
+
+
+// Exponential decay over time based on the equation:
+// x(t)=aexp−bt
+// where a is the initial value, b is the decay constant, and t is time.
+exp_decay(initialValue, decayConstant, time) = initialValue * exp(-decayConstant * time);
+
 
 //process = (amp_in, throttle_in) : (_, hold_max_abs(0.01, RELEASE_PLUCK)) : get_amplitude;
 
