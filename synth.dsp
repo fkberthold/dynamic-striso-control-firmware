@@ -191,6 +191,8 @@ NEG = 0;
 POS = 1;
 
 // The time to remain in each state
+/*
+test here
 ATTACK_PLUCK = 0.1 * ma.SR;
 DECAY_PLUCK = 0.3 * ma.SR;
 RELEASE_PLUCK = 8.0;
@@ -208,8 +210,8 @@ DECAY_FAST = 0.3 * ma.SR;
 RELEASE_FAST = 0.01;
 SUSTAIN_FAST = 0.01 * ma.SR;
 QUICK_FAST = 0.01 * ma.SR;
+*/
 
-/*
 ATTACK_PLUCK = 0.05 * ma.SR;
 DECAY_PLUCK = 0.05 * ma.SR;
 RELEASE_PLUCK = 8.0;
@@ -227,7 +229,7 @@ DECAY_FAST = 0.1 * ma.SR;
 RELEASE_FAST = 0.01;
 SUSTAIN_FAST = 0.01 * ma.SR;
 QUICK_FAST = 0.01 * ma.SR;
-*/
+
 // How much attack goes over the target.
 ATTACK_MOD_PLUCK = 1.7;
 ATTACK_MOD_CENTER = 1.6;
@@ -368,8 +370,10 @@ throttle_in = hslider("Throttle", 0, -1.0, 1.0, 0.01);
 // Exponential decay over time based on the equation:
 // x(t)=aexp−bt
 // where a is the initial value, b is the decay constant, and t is time.
-exp_decay(initialValue, decayConstant, time) = initialValue * exp(-decayConstant * time);
-
+//exp_decay(initialValue, decay_constant, time_val) = initialValue * ba.tabulateNd(1, exp_decay_help, (20, 20,  0, 0,  10, 10, decay_constant, time_val)).lin with {
+exp_decay(initialValue, decay_constant, time_val) = initialValue * ba.tabulateNd(1, exp_decay_help, (3, 3,  0, 0,  10, 10, decay_constant, time_val)).lin with {
+    exp_decay_help(decayConstant, time_val) =  exp(-decayConstant * time_val);
+};
 
 //process = (amp_in, throttle_in) : (_, hold_max_abs(0.01, RELEASE_PLUCK)) : get_amplitude;
 
