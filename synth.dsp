@@ -74,44 +74,16 @@ bfQ2 = hslider("v:[2]config3/bfQ2[style:knob]",8,0.3,20,0.01);
 bfQ3 = hslider("v:[2]config3/bfQ3[style:knob]",8,0.3,20,0.01);
 bflevel = hslider("v:[2]config3/bflevel[style:knob]",6,0.1,20,0.01);
 
-voice(note,pres,vpres,but_x,but_y1) = vosc : _ * level // vosc <: filt, filt2, bfs * bflevel :> _ * level
+voice(note,pres,vpres,but_x,but_y1) = vosc * level
 with {
-    even_harm = (acc_x+1)/2;
     freq = note2freq(note);
     vosc = varOsc(pres, level, freq);
-//    vosc = ((0.90 * os.triangle(freq)) + (0.1 * os.saw2(freq))) / 2;
-//    vosc = os.phasor(1000, freq) : _ / 1000 : sharktooth;
-//    vosc = osc_white(freq);
-    resetni = abs(note-note')<1.0;
 
-//    but_y = but_y1 : LPF(K_f0(20),0.71);
-    pluck = but_y^2 : envdecay(select2(pres==0, halftime2fac_fast(0.01), 1));
     // decaytime = max(max(min(pluck * 2 - 0.4, 0.5+pluck), min(pres * 16, 0.5+pres)), 0.05) * 64 / note;
-    decaytime = max(min(pres * 16, 0.5+pres*0.5), pedal * 0.2 + 0.01) * 64 / note;
     vpres1 = max(vpres - 0.02, 0);
-    vplev = vpres1 / (0.5+vpres1);// + min(pres, 0.001);
-    rotlev = min(pres * 2, max(rot_y^2+rot_z^2 - 0.005, 0));
-    but_y = but_y1 : LPF(K_f0(20),0.71) : (_ * 0.5 + 0.5);
     throttle = ramp_max_abs(0.2, 1.0, min(but_y1 * 2, 1.0));
-    level = (pres, vpres1, throttle) : get_amplitude : LPF(K_f0(20),0.71);
+    level = (pres, vpres1, throttle) : get_amplitude : LPF(K_f0(20),0.71) : min(0.95);
 
-    vdacc = min(acc_abs,2):envdecay(accDecay);
-    // K = K_f0(max(freq,minFreq)) + filtFF*(level*(1-max(-but_y,0))+max(vdacc-1,0))^2^2;
-    // filt = LPF(K, filtQ+max(-but_y,0)*8) * (1-max(-but_y,0)/2)^2;
-    f = min(max(freq,minFreq) * (1 + filtFF*(level*(1-max(-but_y,0))+max(vdacc-1,0))^2), 16000);
-    filt = fi.svf.lp(f, filtQ+max(-but_y,0)*8) * (1-max(-but_y,0)/2)^2;
-
-    filt2lev = max(but_y,0) * but_y * pres;
-    // filt2 = BPF(K_f0(filt2Freq*filt2lev+minFreq), filt2Q) * filt2level * filt2lev;
-    filt2 = fi.svf.bp(filt2Freq*filt2lev+minFreq, filt2Q) * filt2level * filt2lev;
-
-    K1 = select2(rot_y>0, K_f0(900), K_f0(1700)) * (1+0.5*abs(rot_y));
-    b1 = BPF(K1, bfQ1) * abs(rot_y);
-    K2 = select2(rot_x>0, K_f0(300), K_f0(600)) * (1+0.5*abs(rot_x));
-    b2 = BPF(K2, bfQ2) * abs(rot_x);
-    K3 = select2(rot_z>0, K_f0(1300), K_f0(2600)) * (1+0.5*abs(rot_z));
-    b3 = BPF(K3, bfQ3) * abs(rot_z);
-    bfs = _ <: b1, b2, b3 :> _;
 };
 
 varOsc(pres, amp, freq) = wave with {
@@ -120,67 +92,6 @@ varOsc(pres, amp, freq) = wave with {
     precent_triangle = (1 - diff);
     wave = (os.triangle(freq) * precent_triangle) + (os.saw2(freq) * percent_saw); 
 };
-
-
-voice_sine(note,pres,vpres,but_x,but_y) = vosc * level
-with {
-    pitchbend = but_x^3;
-    freq = note2freq(note+pitchbend*bendRange);
-    vosc = os.oscw(freq);
-    level = pres : LPF(K_f0(20),1);
-};
-
-
-seed = 1034790774; // no. 62351 in sequence
-impulse = _ ~ (_ == 0);
-RANDMAX = 2147483647.0;
-
-myrandom = ffunction(int rand_hoaglin (), "fastpow.h", "");
-
-mynoise = myrandom / RANDMAX;
-
-// offset to improve spectral shape
-o = 0;//320;//int(hslider("v:[2]config3/offset[style:knob]", 0, 0, 1<<11, 1));
-osc_white1(freq) = s1 + d * (s2 - s1)
-with {
-    tablesize = 1 << 12; // enough for notes as low as 11 Hz
-    whitetable = rdtable(tablesize, mynoise*2);
-    periodf = float(SR)/freq;
-    period = int(min(periodf * 0.5, tablesize));
-    inc = period/periodf;
-    loop = _ <: _,((_ > period) * period) :> -;
-    phase = inc : (+ : loop) ~ _;
-    s1 = whitetable(o + int(phase));
-    s2 = whitetable(o + ((int(phase)+1) % int(period)));
-    d = dotpart(phase);
-};
-
-// osc_white = os.saw2;
-osc_white = osc_white1;
-
-// white oscilator test to reduce clicks on frequency change
-inco = hslider("v:[2]config3/inc[style:knob]", 1, 0, 2, 0.01);
-osc_white2(freq) = s1 + d * (s2 - s1)
-with {
-    tablesize = 1 << 12; // enough for notes as low as 11 Hz
-    whitetable = rdtable(tablesize, mynoise*2);
-    periodf = float(SR)/freq;
-    inc = inco;
-    period = periodf*inc;
-    loop = _ <: _,((_ > period) * period) :> -;
-    phase = inc : (+ : loop) ~ _;
-    s1 = whitetable(o + int(phase));
-    s2 = whitetable(o + ((int(phase)+1) % int(period)));
-    jump = phase > int(period);
-    d = select2(jump, dotpart(phase), dotpart(phase) / dotpart(period));
-    //d = dotpart(phase) * 1.0/dotpart(period);
-};
-
-// Body Filter
-bodyFilter = _ <: _ * .7,LPF(K_f0(bodyFreq),0.3) * 2 :> _;
-
-vmeter(x) = attach(x, envelop(x) : vbargraph("[2]level", 0, 1));
-envelop = abs : max ~ -(20.0/SR);
 
 
 /*
@@ -323,28 +234,25 @@ get_time_base(state, throttle) = time_base with {
 
     time_base = ba.if(dist_from_zero <= 0.3, center, (select3(ma.signum(throttle) + 1, pluck, center, fast) * dist_from_zero + center * dist_from_one)); 
 };
- 
+
 calculate_curve(state, pressure, vpres, throttle, time_base, attack_mod, max_pressure, time_since) = curve_res with {
+    rel_targets = release_decay_target(time_since, time_base);
+    rel_diff = rel_targets : (_ - _);
+    rel_target = rel_targets : (!, _);
+    rel_ramp_time = ba.if(rel_diff > 0, (time_base / 20) * (1.0 / rel_diff), 0);
+
     target = ba.if(state == ATTACK, min(1, (pressure) * attack_mod), 
-                ba.if(state == RELEASE, release_decay_target(time_since, time_base) * max_pressure, pressure));
-    ramp_time = ba.if(state == RELEASE, time_base / 20, time_base);
+                ba.if(state == RELEASE, rel_target * max_pressure, pressure));
+    ramp_time = ba.if(state == RELEASE, rel_ramp_time, time_base);
     curve_res = ba.ramp(ramp_time, target);
 };
 
-release_decay_target(cur_time, max_time) = cur_target with {
-    percent_total = cur_time / max_time;
-    target_position = ((percent_total * 20) : floor);
+release_decay_target(cur_time, max_time) = prev_target, cur_target with {
+    percent_total = ba.if(max_time > 0, (cur_time) / (max_time), 0) : hbargraph("percent_total", 0, 1);
+    target_position = ((percent_total * 20) : floor) : hbargraph("target_pos", 0, 1);
     targets = (0.86, 0.74, 0.64, 0.55, 0.47, 0.40, 0.35, 0.30, 0.26, 0.22, 0.19, 0.16, 0.14, 0.12, 0.10, 0.08, 0.06, 0.03, 0.01, 0);
+    prev_target = ba.if(target_position>0, ba.selectn(20, target_position - 1, targets), 1.0);
     cur_target = ba.selectn(20, target_position, targets);
-};
-
-hold_max_abs(threshold, hold_time, val_in) = (val_in, ba.time) : (hold_max_abs_rec ~ (_, _)) : (_, !) with {
-    hold_max_abs_rec(prev_val, prev_time, cur_val, cur_time) = (new_val, new_time) with {
-        new_val = ba.if(abs(cur_val) > abs(prev_val), cur_val, 
-                        ba.if((cur_val * prev_val < 0) & (abs(cur_val) > threshold), cur_val,
-                            ba.if(ba.time < prev_time + hold_time, cur_val, prev_val)));
-        new_time = ba.if(new_val == cur_val, cur_time, ba.time);
-    };
 };
 
 ramp_max_abs(threshold, hold_time, val_in) = val_out with {
@@ -360,18 +268,10 @@ ramp_max_abs(threshold, hold_time, val_in) = val_out with {
     val_out = val_in : ramp_fun ~ change_rate;
 };
 
-// Cubic Ease Out
-ease_out_cubic(t) = 1 - (1-t)^3;
-
-// Quad Ease In Out
-ease_in_out_quad(t) = ba.if(t < 0.5, 2*t*t, 1 - pow(-2*t + 2, 2)/2);
 
 // Sharktooth wave as used by the minimoog,
 //  75% triangle, 25% sawtooth
 sharktooth(t) = ba.if(t < 0.75, 4*t, 4*(t-0.75));
-
-amp_in = hslider("Amplitude", 0, 0, 1.0, 0.01);
-throttle_in = hslider("Throttle", 0, -1.0, 1.0, 0.01);
 
 //process = (amp_in, throttle_in) : (_, hold_max_abs(0.01, RELEASE_PLUCK)) : get_amplitude;
 
