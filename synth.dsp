@@ -74,7 +74,7 @@ bfQ2 = hslider("v:[2]config3/bfQ2[style:knob]",8,0.3,20,0.01);
 bfQ3 = hslider("v:[2]config3/bfQ3[style:knob]",8,0.3,20,0.01);
 bflevel = hslider("v:[2]config3/bflevel[style:knob]",6,0.1,20,0.01);
 
-voice(note,pres,vpres,but_x,but_y1) = vosc * level
+voice(note,pres,vpres,but_x,but_y1) = os.osc((1 + vpres) * 1000) * (pres >= 0.01) //vosc * level
 with {
     freq = note2freq(note);
     vosc = varOsc(pres, level, freq);
@@ -82,7 +82,7 @@ with {
     // decaytime = max(max(min(pluck * 2 - 0.4, 0.5+pluck), min(pres * 16, 0.5+pres)), 0.05) * 64 / note;
     vpres1 = max(vpres - 0.02, 0);
     throttle = ramp_max_abs(0.2, 1.0, min(but_y1 * 2, 1.0));
-    level = (pres, vpres1, throttle) : get_amplitude : LPF(K_f0(20),0.71) : min(0.95);
+    level = (pres, vpres1, throttle) : get_amplitude : (_ + 1) * 1000; //: LPF(K_f0(20),0.71) : min(0.95);
 
 };
 
@@ -112,35 +112,34 @@ NEG = 0;
 POS = 1;
 
 // The time to remain in each state
+// test
+ATTACK_PLUCK = 30.00 * ma.SR;
+DECAY_PLUCK = 30.0 * ma.SR;
+RELEASE_PLUCK = 30.0 * ma.SR;
+SUSTAIN_PLUCK = 30.0 * ma.SR;
+QUICK_PLUCK = 30.00 * ma.SR;
+
+ATTACK_CENTER = 30.00 * ma.SR;
+DECAY_CENTER = 30.00 * ma.SR;
+RELEASE_CENTER = 30.0 * ma.SR;
+SUSTAIN_CENTER = 30.0 * ma.SR;
+QUICK_CENTER = 30.00 * ma.SR;
+
+ATTACK_FAST = 30.00 * ma.SR;
+DECAY_FAST = 30.00 * ma.SR;
+RELEASE_FAST = 30.00 * ma.SR;
+SUSTAIN_FAST = 30.00 * ma.SR;
+QUICK_FAST = 30.00 * ma.SR;
+
 /*
-test here
-ATTACK_PLUCK = 0.1 * ma.SR;
-DECAY_PLUCK = 0.3 * ma.SR;
-RELEASE_PLUCK = 8.0;
-SUSTAIN_PLUCK = 2.0 * ma.SR;
-QUICK_PLUCK = 0.01 * ma.SR;
-
-ATTACK_CENTER = 0.1 * ma.SR;
-DECAY_CENTER = 0.3 * ma.SR;
-RELEASE_CENTER = 2.0;
-SUSTAIN_CENTER = 1.0 * ma.SR;
-QUICK_CENTER = 0.01 * ma.SR;
-
-ATTACK_FAST = 0.1 * ma.SR;
-DECAY_FAST = 0.3 * ma.SR;
-RELEASE_FAST = 0.01;
-SUSTAIN_FAST = 0.01 * ma.SR;
-QUICK_FAST = 0.01 * ma.SR;
-*/
-
 ATTACK_PLUCK = 0.05 * ma.SR;
 DECAY_PLUCK = 0.1 * ma.SR;
 RELEASE_PLUCK = 8.0 * ma.SR;
 SUSTAIN_PLUCK = 2.0 * ma.SR;
 QUICK_PLUCK = 0.01 * ma.SR;
 
-ATTACK_CENTER = 0.05 * ma.SR;
-DECAY_CENTER = 0.05 * ma.SR;
+ATTACK_CENTER = 1.05 * ma.SR;
+DECAY_CENTER = 1.05 * ma.SR;
 RELEASE_CENTER = 0.4 * ma.SR;
 SUSTAIN_CENTER = 0.6 * ma.SR;
 QUICK_CENTER = 0.01 * ma.SR;
@@ -150,6 +149,7 @@ DECAY_FAST = 0.05 * ma.SR;
 RELEASE_FAST = 0.01 * ma.SR;
 SUSTAIN_FAST = 0.01 * ma.SR;
 QUICK_FAST = 0.01 * ma.SR;
+*/
 
 // How much attack goes over the target.
 ATTACK_MOD_PLUCK = 1.7;
@@ -162,8 +162,8 @@ RELEASE_THRESHOLD = 0.1;
 get_state(prev_state, time_since, pressure, max_pressure, min_pressure, amplitude, attack_mod) = next_state with {
     // State transitions.
     from_init = ba.if(pressure >= RELEASE_THRESHOLD, ATTACK, INIT);
-    from_attack = ba.if((time_since >= (0.1 * ma.SR)) & (amplitude >= (max_pressure * attack_mod)), DECAY, ATTACK);
-    from_decay = ba.if(pressure >= amplitude, SUSTAIN_INCR, ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, DECAY));
+    from_attack = ba.if((time_since >= (0.05 * ma.SR)) & (amplitude >= (max_pressure * attack_mod)), DECAY, ATTACK);
+    from_decay = ba.if((time_since >= (0.05 * ma.SR)) & (pressure >= amplitude), SUSTAIN_INCR, ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, DECAY));
     from_sustain_incr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure <= amplitude, SUSTAIN_DECR, SUSTAIN_INCR));
     from_sustain_decr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, SUSTAIN_DECR));
     from_release = ba.if((pressure <= 0) & (amplitude <= 0.001), INIT, ba.if(pressure > amplitude, ATTACK, RELEASE));
@@ -208,7 +208,7 @@ lock_on_state_change(state, val) = (state, val) : (locker~(_, _)) : (!, _) with 
     };
 };
 
-get_amplitude(amp_in, vpres, throttle) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
+get_amplitude(amp_in, vpres, throttle) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (_, !) with {
     get_amplitude_rec(prev_state, prev_amp, pressure) = (new_state, amplitude) with {
         pressures = amp_range(prev_state, pressure, prev_amp, attack_mod);
         min_pressure = pressures : (!, _, !);
@@ -241,7 +241,7 @@ calculate_curve(state, pressure, vpres, throttle, time_base, attack_mod, max_pre
     rel_target = rel_targets : (!, _);
     rel_ramp_time = ba.if(rel_diff > 0, (time_base / 20) * (1.0 / rel_diff), 0);
 
-    target = ba.if(state == ATTACK, min(1, (pressure) * attack_mod), 
+    target = ba.if(state == ATTACK, min(1, vpres), 
                 ba.if(state == RELEASE, rel_target * max_pressure, pressure));
     ramp_time = ba.if(state == RELEASE, rel_ramp_time, time_base);
     curve_res = ba.ramp(ramp_time, target);
@@ -282,8 +282,8 @@ sharktooth(t) = ba.if(t < 0.75, 4*t, 4*(t-0.75));
 //  not frosty.
 
 process = hgroup("strisy",
-        sum(n, voicecount, vgroup("v%n", (note,pres,vpres,but_x,but_y)) : voice) // : vgroup("v%n", vmeter))
-        * 1.37 : HPF(K_f0(80),1.31) );
+        sum(n, voicecount, vgroup("v%n", (note,pres,vpres,but_x,but_y)) : voice)); // : vgroup("v%n", vmeter))
+//        * 1.37 : HPF(K_f0(80),1.31) );
 
 /*
 2023/08/21
