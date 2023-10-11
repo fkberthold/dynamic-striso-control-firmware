@@ -74,16 +74,13 @@ bfQ2 = hslider("v:[2]config3/bfQ2[style:knob]",8,0.3,20,0.01);
 bfQ3 = hslider("v:[2]config3/bfQ3[style:knob]",8,0.3,20,0.01);
 bflevel = hslider("v:[2]config3/bflevel[style:knob]",6,0.1,20,0.01);
 
-voice(note,pres,vpres,but_x,but_y1) = vosc * level
+voice(note,pres,vpres,but_x,but_y1) = level * os.osc(freq)
 with {
     freq = note2freq(note);
     vosc = varOsc(pres, level, freq);
 
-    // decaytime = max(max(min(pluck * 2 - 0.4, 0.5+pluck), min(pres * 16, 0.5+pres)), 0.05) * 64 / note;
-    vpres1 = max(vpres - 0.02, 0);
     throttle = ramp_max_abs(0.2, 1.0, min(but_y1 * 2, 1.0));
-    level = (pres, vpres1, throttle) : get_amplitude : LPF(K_f0(20),0.71) : min(0.95);
-
+    level = (pres, vpres, throttle) : get_amplitude : LPF(K_f0(20),0.71) : min(0.95) ;
 };
 
 varOsc(pres, amp, freq) = wave with {
@@ -92,7 +89,6 @@ varOsc(pres, amp, freq) = wave with {
     precent_triangle = (1 - diff);
     wave = (os.triangle(freq) * precent_triangle) + (os.saw2(freq) * percent_saw); 
 };
-
 
 /*
  * NEW CODE
@@ -112,58 +108,66 @@ NEG = 0;
 POS = 1;
 
 // The time to remain in each state
+//  This indicates a rate of travel, 
+//  not a time to reach the target.
+ATTACK_GEN = 0.05 * ma.SR;
+DECAY_GEN = 0.5 * ma.SR;
+RELEASE_GEN = 10.0 * ma.SR;
+SUSTAIN_GEN = 1.0 * ma.SR;
+QUICK_GEN = 0.01 * ma.SR;
+
+ATTACK_PLUCK = ATTACK_GEN;
+DECAY_PLUCK = DECAY_GEN;
+RELEASE_PLUCK = RELEASE_GEN;
+SUSTAIN_PLUCK = SUSTAIN_GEN;
+QUICK_PLUCK = QUICK_GEN;
+
+ATTACK_CENTER = ATTACK_GEN;
+DECAY_CENTER = DECAY_GEN;
+RELEASE_CENTER = RELEASE_GEN;
+SUSTAIN_CENTER = SUSTAIN_GEN;
+QUICK_CENTER = QUICK_GEN;
+
+ATTACK_FAST = ATTACK_GEN;
+DECAY_FAST = DECAY_GEN;
+RELEASE_FAST = RELEASE_GEN;
+SUSTAIN_FAST = SUSTAIN_GEN;
+QUICK_FAST = QUICK_GEN;
+
+
 /*
-test here
-ATTACK_PLUCK = 0.1 * ma.SR;
-DECAY_PLUCK = 0.3 * ma.SR;
-RELEASE_PLUCK = 8.0;
-SUSTAIN_PLUCK = 2.0 * ma.SR;
-QUICK_PLUCK = 0.01 * ma.SR;
-
-ATTACK_CENTER = 0.1 * ma.SR;
-DECAY_CENTER = 0.3 * ma.SR;
-RELEASE_CENTER = 2.0;
-SUSTAIN_CENTER = 1.0 * ma.SR;
-QUICK_CENTER = 0.01 * ma.SR;
-
-ATTACK_FAST = 0.1 * ma.SR;
-DECAY_FAST = 0.3 * ma.SR;
-RELEASE_FAST = 0.01;
-SUSTAIN_FAST = 0.01 * ma.SR;
-QUICK_FAST = 0.01 * ma.SR;
-*/
-
 ATTACK_PLUCK = 0.05 * ma.SR;
-DECAY_PLUCK = 0.1 * ma.SR;
+DECAY_PLUCK = 5.1 * ma.SR;
 RELEASE_PLUCK = 8.0 * ma.SR;
 SUSTAIN_PLUCK = 2.0 * ma.SR;
 QUICK_PLUCK = 0.01 * ma.SR;
 
 ATTACK_CENTER = 0.05 * ma.SR;
-DECAY_CENTER = 0.05 * ma.SR;
+DECAY_CENTER = 5.05 * ma.SR;
 RELEASE_CENTER = 0.4 * ma.SR;
 SUSTAIN_CENTER = 0.6 * ma.SR;
 QUICK_CENTER = 0.01 * ma.SR;
 
 ATTACK_FAST = 0.05 * ma.SR;
-DECAY_FAST = 0.05 * ma.SR;
+DECAY_FAST = 5.05 * ma.SR;
 RELEASE_FAST = 0.01 * ma.SR;
 SUSTAIN_FAST = 0.01 * ma.SR;
 QUICK_FAST = 0.01 * ma.SR;
+*/
 
 // How much attack goes over the target.
-ATTACK_MOD_PLUCK = 1.7;
-ATTACK_MOD_CENTER = 1.6;
-ATTACK_MOD_FAST = 1.6;
+ATTACK_MOD_PLUCK = 2.0;
+ATTACK_MOD_CENTER = 2.0;
+ATTACK_MOD_FAST = 2.0;
 
 // When to go from Decay to Release
 RELEASE_THRESHOLD = 0.1;
 
-get_state(prev_state, time_since, pressure, max_pressure, min_pressure, amplitude, attack_mod) = next_state with {
+get_state(prev_state, time_since, pressure, max_pressure, max_velocity, attack_mod, amplitude) = next_state with {
     // State transitions.
     from_init = ba.if(pressure >= RELEASE_THRESHOLD, ATTACK, INIT);
-    from_attack = ba.if((time_since >= (0.1 * ma.SR)) & (amplitude >= (max_pressure * attack_mod)), DECAY, ATTACK);
-    from_decay = ba.if(pressure >= amplitude, SUSTAIN_INCR, ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, DECAY));
+    from_attack = ba.if(amplitude >= (max_velocity * attack_mod), DECAY, ATTACK);
+    from_decay = ba.if(pressure >= amplitude, SUSTAIN_INCR, ba.if(pressure <= RELEASE_THRESHOLD, INIT, DECAY));
     from_sustain_incr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure <= amplitude, SUSTAIN_DECR, SUSTAIN_INCR));
     from_sustain_decr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, SUSTAIN_DECR));
     from_release = ba.if((pressure <= 0) & (amplitude <= 0.001), INIT, ba.if(pressure > amplitude, ATTACK, RELEASE));
@@ -177,18 +181,11 @@ get_state(prev_state, time_since, pressure, max_pressure, min_pressure, amplitud
                                from_quick_release,
                                from_sustain_incr,
                                from_sustain_decr);
-
 };
 
-direction(prev_val, cur_val) = dir with {
-    dir = ba.if(cur_val > prev_val, POS, ba.if(cur_val < prev_val, NEG, dir));
-};
 
-inflection(prev_dir, cur_dir) = inflect with {
-    inflect = ba.if(prev_dir != cur_dir, 1, 0);
-};
-
-amp_range(st,pres,amp, attack_mod) = (st, pres, amp) : range_rec ~ (_, _, _)  with {
+// Returns the last state
+amp_range(st,pres,amp, attack_mod) = (st, pres, amp) : range_rec ~ (_, _, _)  with { 
     range_rec(prev_state, prev_min, prev_max, cur_state, cur_pres, cur_amp) = (cur_state, new_min, new_max) with {
         attack_pres = cur_pres * attack_mod;
         new_min = ba.if(cur_state==INIT, cur_pres, ba.if(prev_state == cur_state, min(min(prev_min, cur_pres),cur_amp), min(cur_pres, cur_amp)));
@@ -208,6 +205,13 @@ lock_on_state_change(state, val) = (state, val) : (locker~(_, _)) : (!, _) with 
     };
 };
 
+// get the maximum value since the state changed.
+max_since_state_change(state, val) = (state, val) : (maxer~(_, _)) : (!, _) with {
+    maxer(prev_state, prev_val, cur_state, cur_val) = (cur_state, max_val) with {
+        max_val = ba.if(prev_state != cur_state, cur_val, max(prev_val, cur_val));
+    };
+};
+
 get_amplitude(amp_in, vpres, throttle) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
     get_amplitude_rec(prev_state, prev_amp, pressure) = (new_state, amplitude) with {
         pressures = amp_range(prev_state, pressure, prev_amp, attack_mod);
@@ -215,13 +219,13 @@ get_amplitude(amp_in, vpres, throttle) = (amp_in) : (get_amplitude_rec ~ (_, _))
         max_pressure = pressures : (!, !, _);
         start_time = time_changed(prev_state);
         time_since = (ba.time - start_time);
+        max_vpres = max_since_state_change(prev_state, vpres);
         full_pressure = max_pressure;
         attack_mod = select3(ma.signum(throttle) + 1, ATTACK_MOD_PLUCK, ATTACK_MOD_CENTER, ATTACK_MOD_FAST);
-        time_base = get_time_base(prev_state, throttle);
+        time_base = get_time_base(new_state, throttle);
 
-        base_amplitude = calculate_curve(prev_state, pressure, vpres, throttle, time_base, attack_mod, max_pressure, time_since);
-        amplitude = base_amplitude;
-        new_state = get_state(prev_state, time_since, pressure, min_pressure, max_pressure, prev_amp, attack_mod);
+        amplitude = calculate_curve(prev_state, pressure, max_vpres, time_base, attack_mod, max_pressure, time_since);
+        new_state = get_state(prev_state, time_since, pressure, max_pressure, max_vpres, attack_mod, prev_amp);
     };
 };
 
@@ -232,18 +236,20 @@ get_time_base(state, throttle) = time_base with {
     dist_from_zero = abs(throttle);
     dist_from_one = 1 - dist_from_zero;
 
-    time_base = ba.if(dist_from_zero <= 0.3, center, (select3(ma.signum(throttle) + 1, pluck, center, fast) * dist_from_zero + center * dist_from_one)); 
+    time_base = select3(ma.signum(throttle) + 1, pluck, center, fast) * dist_from_zero + center * dist_from_one; 
 };
 
-calculate_curve(state, pressure, vpres, throttle, time_base, attack_mod, max_pressure, time_since) = curve_res with {
+calculate_curve(state, pressure, vpres, time_base, attack_mod, max_pressure, time_since) = curve_res with {
     rel_targets = release_decay_target(time_since, time_base);
     rel_diff = rel_targets : (_ - _);
     rel_target = rel_targets : (!, _);
     rel_ramp_time = ba.if(rel_diff > 0, (time_base / 20) * (1.0 / rel_diff), 0);
 
-    target = ba.if(state == ATTACK, min(1, (pressure) * attack_mod), 
-                ba.if(state == RELEASE, rel_target * max_pressure, pressure));
-    ramp_time = ba.if(state == RELEASE, rel_ramp_time, time_base);
+    target = ba.if(state == ATTACK, min(1, vpres * attack_mod), 
+                ba.if(state == INIT, 0,
+                    ba.if(state == RELEASE, rel_target * max_pressure, pressure)));
+    ramp_time = ba.if(state == INIT, 0.0001,
+                    ba.if(state == RELEASE, rel_ramp_time, time_base));
     curve_res = ba.ramp(ramp_time, target);
 };
 
