@@ -74,16 +74,16 @@ bfQ2 = hslider("v:[2]config3/bfQ2[style:knob]",8,0.3,20,0.01);
 bfQ3 = hslider("v:[2]config3/bfQ3[style:knob]",8,0.3,20,0.01);
 bflevel = hslider("v:[2]config3/bflevel[style:knob]",6,0.1,20,0.01);
 
-voice(note,pres,vpres,but_x,but_y1) = level * os.osc(freq)
+voice(note,pres,vpres,but_x,but_y1) = tambor(level)
 with {
     freq = note2freq(note);
-    vosc = varOsc(pres, level, freq);
+    tambor(ampl) = ampl <: (_,tamborGen(pres, freq)) :  *;
 
     throttle = ramp_max_abs(0.2, 1.0, min(but_y1 * 2, 1.0));
     level = (pres, vpres, throttle) : get_amplitude : LPF(K_f0(20),0.71) : min(0.95) ;
 };
 
-varOsc(pres, amp, freq) = wave with {
+tamborGen(pres, freq, amp) = wave with {
     diff = pres - amp;
     percent_saw = 0.25 + max(min(diff * 3, 0.3), -0.15);
     precent_triangle = (1 - diff);
@@ -98,9 +98,8 @@ INIT = 0;
 ATTACK = 1;
 DECAY = 2;
 RELEASE = 3;
-QUICK_RELEASE = 4;
-SUSTAIN_INCR = 5;
-SUSTAIN_DECR = 6;
+SUSTAIN_INCR = 4;
+SUSTAIN_DECR = 5;
 
 DECR = 0;
 INCR = 1;
@@ -110,29 +109,25 @@ POS = 1;
 // The time to remain in each state
 //  This indicates a rate of travel, 
 //  not a time to reach the target.
-ATTACK_GEN = 0.05 * ma.SR;
-DECAY_GEN = 0.5 * ma.SR;
-RELEASE_GEN = 10.0 * ma.SR;
-SUSTAIN_GEN = 1.0 * ma.SR;
-QUICK_GEN = 0.01 * ma.SR;
+ATTACK_GEN = 0.01 * ma.SR;
+DECAY_GEN = 0.1 * ma.SR;
+RELEASE_GEN = 0.3 * ma.SR;
+SUSTAIN_GEN = 0.3 * ma.SR;
 
 ATTACK_PLUCK = ATTACK_GEN;
 DECAY_PLUCK = DECAY_GEN;
 RELEASE_PLUCK = RELEASE_GEN;
 SUSTAIN_PLUCK = SUSTAIN_GEN;
-QUICK_PLUCK = QUICK_GEN;
 
 ATTACK_CENTER = ATTACK_GEN;
 DECAY_CENTER = DECAY_GEN;
 RELEASE_CENTER = RELEASE_GEN;
 SUSTAIN_CENTER = SUSTAIN_GEN;
-QUICK_CENTER = QUICK_GEN;
 
 ATTACK_FAST = ATTACK_GEN;
 DECAY_FAST = DECAY_GEN;
 RELEASE_FAST = RELEASE_GEN;
 SUSTAIN_FAST = SUSTAIN_GEN;
-QUICK_FAST = QUICK_GEN;
 
 
 /*
@@ -140,45 +135,40 @@ ATTACK_PLUCK = 0.05 * ma.SR;
 DECAY_PLUCK = 5.1 * ma.SR;
 RELEASE_PLUCK = 8.0 * ma.SR;
 SUSTAIN_PLUCK = 2.0 * ma.SR;
-QUICK_PLUCK = 0.01 * ma.SR;
 
 ATTACK_CENTER = 0.05 * ma.SR;
 DECAY_CENTER = 5.05 * ma.SR;
 RELEASE_CENTER = 0.4 * ma.SR;
 SUSTAIN_CENTER = 0.6 * ma.SR;
-QUICK_CENTER = 0.01 * ma.SR;
 
 ATTACK_FAST = 0.05 * ma.SR;
 DECAY_FAST = 5.05 * ma.SR;
 RELEASE_FAST = 0.01 * ma.SR;
 SUSTAIN_FAST = 0.01 * ma.SR;
-QUICK_FAST = 0.01 * ma.SR;
 */
 
 // How much attack goes over the target.
-ATTACK_MOD_PLUCK = 2.0;
-ATTACK_MOD_CENTER = 2.0;
-ATTACK_MOD_FAST = 2.0;
+ATTACK_MOD_PLUCK = 1.0;
+ATTACK_MOD_CENTER = 1.0;
+ATTACK_MOD_FAST = 1.0;
 
 // When to go from Decay to Release
 RELEASE_THRESHOLD = 0.1;
 
 get_state(prev_state, time_since, pressure, max_pressure, max_velocity, attack_mod, amplitude) = next_state with {
     // State transitions.
-    from_init = ba.if(pressure >= RELEASE_THRESHOLD, ATTACK, INIT);
+    from_init = ba.if(pressure >= 0, ATTACK, INIT);
     from_attack = ba.if(amplitude >= (max_velocity * attack_mod), DECAY, ATTACK);
     from_decay = ba.if(pressure >= amplitude, SUSTAIN_INCR, ba.if(pressure <= RELEASE_THRESHOLD, INIT, DECAY));
     from_sustain_incr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure <= amplitude, SUSTAIN_DECR, SUSTAIN_INCR));
     from_sustain_decr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, SUSTAIN_DECR));
     from_release = ba.if((pressure <= 0) & (amplitude <= 0.001), INIT, ba.if(pressure > amplitude, ATTACK, RELEASE));
-    from_quick_release = ba.if(amplitude <= RELEASE_THRESHOLD, INIT, QUICK_RELEASE);
 
-    next_state = ba.selectn(7, prev_state,
+    next_state = ba.selectn(6, prev_state,
                                from_init,
                                from_attack,
                                from_decay,
                                from_release,
-                               from_quick_release,
                                from_sustain_incr,
                                from_sustain_decr);
 };
@@ -230,9 +220,9 @@ get_amplitude(amp_in, vpres, throttle) = (amp_in) : (get_amplitude_rec ~ (_, _))
 };
 
 get_time_base(state, throttle) = time_base with {
-    center = ba.selectn(7, state, 0, ATTACK_CENTER, DECAY_CENTER, RELEASE_CENTER, QUICK_CENTER, SUSTAIN_CENTER, SUSTAIN_CENTER);
-    pluck = ba.selectn(7, state, 0, ATTACK_PLUCK, DECAY_PLUCK, RELEASE_PLUCK, QUICK_PLUCK, SUSTAIN_PLUCK, SUSTAIN_PLUCK);
-    fast = ba.selectn(7, state, 0, ATTACK_FAST, DECAY_FAST, RELEASE_FAST, QUICK_FAST, SUSTAIN_FAST, SUSTAIN_FAST);
+    center = ba.selectn(6, state, 0, ATTACK_CENTER, DECAY_CENTER, RELEASE_CENTER, SUSTAIN_CENTER, SUSTAIN_CENTER);
+    pluck = ba.selectn(6, state, 0, ATTACK_PLUCK, DECAY_PLUCK, RELEASE_PLUCK, SUSTAIN_PLUCK, SUSTAIN_PLUCK);
+    fast = ba.selectn(6, state, 0, ATTACK_FAST, DECAY_FAST, RELEASE_FAST, SUSTAIN_FAST, SUSTAIN_FAST);
     dist_from_zero = abs(throttle);
     dist_from_one = 1 - dist_from_zero;
 
