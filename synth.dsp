@@ -77,7 +77,7 @@ bflevel = hslider("v:[2]config3/bflevel[style:knob]",6,0.1,20,0.01);
 voice(note,pres,vpres,but_x,but_y1) = fullsound(level)
 with {
     freq = note2freq(note);
-    fullsound(ampl) = ampl <: (_,tamborGen(pres, freq)) :  *;
+    fullsound(ampl) = ampl <: (_, tamborGen(pres, realVpres, freq)) :  *;
 
     timeSincePressureChange = (ba.time - time_changed(vpres)) / ma.SR;
     realPres = ba.if((timeSincePressureChange > 0.1) & (vpres == 0), 0, pres);
@@ -87,12 +87,21 @@ with {
     level = (realPres, realVpres, throttle) : get_amplitude : LPF(K_f0(20),0.71) : min(0.95);
 };
 
-tamborGen(pres, freq, amp) = wave with {
+tamborGen(pres, realVpres, freq, amp) = wave with {
+    phasor = os.phasor(ma.SR, freq) / ma.SR;
+    triWave = ba.if(phasor < 0.5, phasor * 4 - 1, (1 - phasor) * 4 - 1);
+    sawWave = phasor * 2 - 1;
     diff = pres - amp;
     percent_saw = 0.25 + max(min(diff * 3, 0.3), -0.15);
     precent_triangle = (1 - diff);
-    wave = (os.triangle(freq) * precent_triangle) + (os.saw2(freq) * percent_saw); 
+    base_wave = (triWave * precent_triangle) + (sawWave * percent_saw); 
+
+    harmonic = realVpres;
+    wave_up2 = os.saw2(freq * ba.cent2ratio(5));
+    wave_dn2 = os.saw2(freq * ba.cent2ratio(-5));
+    wave = (base_wave * (0.8 - (2 * harmonic))) + (wave_up2 * (0.1 + harmonic)) + (wave_dn2 * (0.1 + harmonic));
 };
+
 
 /*
  * New Code
