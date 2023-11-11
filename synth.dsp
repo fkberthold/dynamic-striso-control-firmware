@@ -120,8 +120,8 @@ PLUCK = 6;
 
 // When the y axis is toward the center,
 //  lean towards the center curve.
-ATTACK_T = 0.05 * ma.SR;
-DECAY_T = 0.2 * ma.SR;
+ATTACK_T = 10.05 * ma.SR;
+DECAY_T = 10.2 * ma.SR;
 RELEASE_T = 0.3 * ma.SR;
 SUSTAIN_T = 0.1 * ma.SR;
 PLUCK_T = 4.0 * ma.SR;
@@ -135,8 +135,8 @@ RELEASE_THRESHOLD = 0.01;
 get_state(prev_state, time_since, pressure, max_pressure, max_velocity, attack_mod, amplitude) = next_state with {
     // State transitions.
     from_init = ba.if(pressure > 0, ATTACK, INIT);
-    from_attack = ba.if(ba.if(amplitude >= (max_velocity * attack_mod), ba.if(pressure <= 0, PLUCK, DECAY), ATTACK));
-    from_decay = ba.if(pressure <= 0, PLUCK, ba.if(pressure >= amplitude, SUSTAIN_INCR, ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, DECAY)));
+    from_attack = ba.if(amplitude >= (max_velocity * attack_mod), ba.if(pressure <= 0, PLUCK, DECAY), ATTACK);
+    from_decay = ba.if(pressure <= RELEASE_THRESHOLD, PLUCK, ba.if(pressure >= amplitude, SUSTAIN_INCR, DECAY));
     from_sustain_incr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure <= amplitude, SUSTAIN_DECR, SUSTAIN_INCR));
     from_sustain_decr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, SUSTAIN_DECR));
     from_release = ba.if((pressure <= RELEASE_THRESHOLD) & (amplitude <= 0.001), INIT, ba.if(pressure > amplitude, ATTACK, RELEASE));
@@ -202,7 +202,7 @@ get_amplitude(amp_in, vpres) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) 
         time_base = get_time_base(new_state, min_velocity);
 
         amplitude = calculate_curve(prev_state, pressure, cur_max_vpres, time_base, attack_mod, max_pressure, time_since);
-        new_state = get_state(prev_state, time_since, pressure, max_pressure, cur_max_vpres, attack_mod, prev_amp) : hbargraph("state", 0, 6);
+        new_state = get_state(prev_state, time_since, pressure, max_pressure, cur_max_vpres, attack_mod, prev_amp);
     };
 };
 
