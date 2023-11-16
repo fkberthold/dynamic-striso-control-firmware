@@ -75,7 +75,7 @@ bfQ3 = hslider("v:[2]config3/bfQ3[style:knob]",8,0.3,20,0.01);
 bflevel = hslider("v:[2]config3/bflevel[style:knob]",6,0.1,20,0.01);
 
 // Takes raw data as input, and outputs pretty sound waves.
-voice(note,pres,vpres,but_x,but_y1) = fullsound(level)
+voice(note,pres,vpres,but_x,but_y1) = fullsound(level) //((os.osc(880) * ((ampl_res == 4)|(ampl_res == 5))) + (os.osc(440) * (ampl_res == 3))) * 0.25 //fullsound(level)
 with {
     scaled_pres = easeInOutSine(realPres);
     freq = note2freq(note);
@@ -85,7 +85,7 @@ with {
     realPres = ba.if((timeSincePressureChange > 0.5) & (vpres == 0), 0, pres);
 
     ampl_res = (scaled_pres, vpres) : get_amplitude ;
-    level = ampl_res  : LPF(K_f0(20),0.71) : min(0.95);
+    level = ampl_res : LPF(K_f0(20),0.71) : min(0.99);
 };
 
 // Determines the shape of the sound waves.
@@ -101,10 +101,9 @@ tamborGen(pres, realVpres, freq, amp) = wave with {
     rem_harmonic = realVpres * 2;
     add_harmonic = realVpres / 2;
     wave_up1 = os.saw2(freq * ba.cent2ratio(23));
-    wave_up2 = os.saw2(freq * ba.cent2ratio(43));
     wave_dn1 = os.saw2(freq * ba.cent2ratio(-23));
-    wave_dn2 = os.saw2(freq * ba.cent2ratio(-43));
-    wave = (base_wave * (0.6 - rem_harmonic)) + (wave_up1 * (0.15 + add_harmonic)) + (wave_dn1 * (0.15 + add_harmonic)) + (wave_up2 * (0.05 + add_harmonic)) + (wave_dn2 * (0.05 + add_harmonic));
+    wave = (base_wave * (0.6 - rem_harmonic)) + (wave_up1 * (0.2 + add_harmonic)) + (wave_dn1 * (0.2 + add_harmonic));
+//    wave = base_wave;
 };
 
 
@@ -120,27 +119,27 @@ PLUCK = 6;
 
 // When the y axis is toward the center,
 //  lean towards the center curve.
-ATTACK_T = 10.05 * ma.SR;
-DECAY_T = 10.2 * ma.SR;
-RELEASE_T = 0.3 * ma.SR;
-SUSTAIN_T = 0.1 * ma.SR;
-PLUCK_T = 4.0 * ma.SR;
+ATTACK_T = 0.05 * ma.SR;
+DECAY_T = 0.5 * ma.SR;
+RELEASE_T = 0.25 * ma.SR;
+SUSTAIN_T = 0.2 * ma.SR;
+PLUCK_T = 8.0 * ma.SR;
 
 // How much attack goes over the target.
-ATTACK_MOD_CENTER = 1.3;
+ATTACK_MOD = 1.0;
 
 // When to go from Decay to Release
-RELEASE_THRESHOLD = 0.01;
+RELEASE_THRESHOLD = 0.001;
 
-get_state(prev_state, time_since, pressure, max_pressure, max_velocity, attack_mod, amplitude) = next_state with {
+get_state(prev_state, time_since, pressure, max_pressure, max_velocity, amplitude) = next_state with {
     // State transitions.
-    from_init = ba.if(pressure > 0, ATTACK, INIT);
-    from_attack = ba.if(amplitude >= (max_velocity * attack_mod), ba.if(pressure <= 0, PLUCK, DECAY), ATTACK);
-    from_decay = ba.if(pressure <= RELEASE_THRESHOLD, PLUCK, ba.if(pressure >= amplitude, SUSTAIN_INCR, DECAY));
+    from_init = ba.if((pressure > RELEASE_THRESHOLD), ATTACK, INIT);
+    from_attack = ba.if(amplitude >= min(max_velocity * ATTACK_MOD, 1.0), ba.if(pressure <= RELEASE_THRESHOLD, PLUCK, DECAY), ATTACK);
+    from_decay = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, DECAY));
     from_sustain_incr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure <= amplitude, SUSTAIN_DECR, SUSTAIN_INCR));
     from_sustain_decr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, SUSTAIN_DECR));
-    from_release = ba.if((pressure <= RELEASE_THRESHOLD) & (amplitude <= 0.001), INIT, ba.if(pressure > amplitude, ATTACK, RELEASE));
-    from_pluck = ba.if(amplitude <= 0.001, INIT, ba.if(pressure > 0, ATTACK, PLUCK));
+    from_release = ba.if((pressure <= RELEASE_THRESHOLD) & (amplitude <= 0.001), INIT, ba.if(pressure > RELEASE_THRESHOLD, ATTACK, RELEASE));
+    from_pluck = ba.if(amplitude <= 0.001, INIT, ba.if(pressure > RELEASE_THRESHOLD, ATTACK, PLUCK));
 
     next_state = ba.selectn(7, prev_state,
                                from_init,
@@ -164,7 +163,7 @@ amp_range(st,pres,amp) = (st, pres, amp) : range_rec ~ (_, _, _)  with {
 time_changed(state) = ba.time : ba.latch(state != state');
 
 // hold min/max velocity since first pressed.
-get_pos_velocity_abs(velocity, pressure) = velocity : ba.peakhold(((pressure == 0) | (pressure' != 0)));
+get_pos_velocity_abs(velocity, pressure) = velocity : ba.peakhold(((pressure <= RELEASE_THRESHOLD) | (pressure' >= RELEASE_THRESHOLD)));
 get_neg_velocity_abs(velocity, pressure) = get_pos_velocity_abs(-1 * velocity, pressure);
 
 // get the maximum value since the state changed.
@@ -189,20 +188,20 @@ percentSelect3(depth, left, center, right) = val with {
 
 // Get the amplitude based on the current state.
 get_amplitude(amp_in, vpres) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
-    min_velocity = get_neg_velocity_abs(vpres, amp_in) : min(1, _ * ma.SR) : easeOutExpo;
+    min_velocity = get_neg_velocity_abs(vpres, amp_in) : _ * 2.0 : min(1, _);
+    max_velocity = get_pos_velocity_abs(vpres, amp_in) : _ * 1.5 : min(1, _);
     get_amplitude_rec(prev_state, prev_amp, pressure) = (new_state, amplitude) with {
         pressures = amp_range(prev_state, pressure, prev_amp);
         min_pressure = pressures : (!, _, !);
         max_pressure = pressures : (!, !, _);
         start_time = time_changed(prev_state);
         time_since = (ba.time - start_time);
-        cur_max_vpres = max_since_state_change(prev_state, vpres) * 2;
+//        cur_max_vpres = max_since_state_change(prev_state, vpres);
         full_pressure = max_pressure;
-        attack_mod =  ATTACK_MOD_CENTER;
         time_base = get_time_base(new_state, min_velocity);
 
-        amplitude = calculate_curve(prev_state, pressure, cur_max_vpres, time_base, attack_mod, max_pressure, time_since);
-        new_state = get_state(prev_state, time_since, pressure, max_pressure, cur_max_vpres, attack_mod, prev_amp);
+        amplitude = calculate_curve(prev_state, pressure, max_velocity, time_base, max_pressure, time_since);
+        new_state = get_state(prev_state, time_since, pressure, max_pressure, max_velocity, prev_amp);
     };
 };
 
@@ -211,14 +210,14 @@ get_time_base(state, abs_neg_velocity) = time_base with {
     time_base = ba.if(state == PLUCK, PLUCK_T * abs_neg_velocity, multiplier);
 };
 
-calculate_curve(state, pressure, vpres, time_base, attack_mod, max_pressure, time_since) = curve_res with {
+calculate_curve(state, pressure, vpres, time_base, max_pressure, time_since) = curve_res with {
     rel_targets = release_decay_target(time_since, time_base);
     rel_diff = rel_targets : (_ - _);
     rel_target = rel_targets : (!, _);
     rel_ramp_time = ba.if(rel_diff > 0, (time_base / 20) * (1.0 / rel_diff), 0);
 
-    target = ba.if(state == ATTACK, min(1, vpres * attack_mod), 
-                ba.if(state == INIT, 0,
+    target = ba.if(state == ATTACK, min(1, vpres * ATTACK_MOD), 
+                ba.if(state == INIT, 0.0001,
                     ba.if((state == RELEASE)|(state == PLUCK), rel_target * max_pressure, pressure)));
     ramp_time = ba.if(state == INIT, 0.0001,
                     ba.if(state == RELEASE, rel_ramp_time, time_base));
