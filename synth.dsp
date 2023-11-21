@@ -93,9 +93,9 @@ tamborGen(pres, realVpres, freq, amp) = wave with {
     phasor = os.phasor(ma.SR, freq) / ma.SR;
     triWave = ba.if(phasor < 0.5, phasor * 4 - 1, (1 - phasor) * 4 - 1);
     sawWave = phasor * 2 - 1;
-    diff = pres - amp;
+    diff = 0; //pres - amp;
     percent_saw = 0.25 + max(min(diff * 3, 0.3), -0.15);
-    precent_triangle = (1 - diff);
+    precent_triangle = (1 - percent_saw);
     base_wave = (triWave * precent_triangle) + (sawWave * percent_saw); 
 
     rem_harmonic = realVpres * 2;
@@ -120,10 +120,10 @@ PLUCK = 6;
 // When the y axis is toward the center,
 //  lean towards the center curve.
 ATTACK_T = 0.05 * ma.SR;
-DECAY_T = 0.5 * ma.SR;
-RELEASE_T = 0.25 * ma.SR;
-SUSTAIN_T = 0.2 * ma.SR;
-PLUCK_T = 8.0 * ma.SR;
+DECAY_T = 0.2 * ma.SR;
+RELEASE_T = 0.05 * ma.SR;
+SUSTAIN_T = 0.1 * ma.SR;
+PLUCK_T = 4.0 * ma.SR;
 
 // How much attack goes over the target.
 ATTACK_MOD = 1.0;
@@ -135,7 +135,7 @@ get_state(prev_state, time_since, pressure, max_pressure, max_velocity, amplitud
     // State transitions.
     from_init = ba.if((pressure > RELEASE_THRESHOLD), ATTACK, INIT);
     from_attack = ba.if(amplitude >= min(max_velocity * ATTACK_MOD, 1.0), ba.if(pressure <= RELEASE_THRESHOLD, PLUCK, DECAY), ATTACK);
-    from_decay = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, DECAY));
+    from_decay = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, ba.if(pressure <= RELEASE_THRESHOLD, PLUCK, SUSTAIN_INCR), DECAY));
     from_sustain_incr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure <= amplitude, SUSTAIN_DECR, SUSTAIN_INCR));
     from_sustain_decr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, SUSTAIN_DECR));
     from_release = ba.if((pressure <= RELEASE_THRESHOLD) & (amplitude <= 0.001), INIT, ba.if(pressure > RELEASE_THRESHOLD, ATTACK, RELEASE));
@@ -185,18 +185,16 @@ percentSelect3(depth, left, center, right) = val with {
     val = select3(ma.signum(depth) + 1, left, center, right) * dist_from_zero + center * dist_from_one; 
 };
 
-
 // Get the amplitude based on the current state.
 get_amplitude(amp_in, vpres) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
-    min_velocity = get_neg_velocity_abs(vpres, amp_in) : _ * 2.0 : min(1, _);
-    max_velocity = get_pos_velocity_abs(vpres, amp_in) : _ * 1.5 : min(1, _);
+    max_velocity = 1.0 ; //get_neg_velocity_abs(vpres, amp_in) : _ * 1.0 : min(1, _);
+    min_velocity = 1.0 ; //get_pos_velocity_abs(vpres, amp_in) : _ * 1.0 : min(1, _);
     get_amplitude_rec(prev_state, prev_amp, pressure) = (new_state, amplitude) with {
         pressures = amp_range(prev_state, pressure, prev_amp);
         min_pressure = pressures : (!, _, !);
         max_pressure = pressures : (!, !, _);
         start_time = time_changed(prev_state);
         time_since = (ba.time - start_time);
-//        cur_max_vpres = max_since_state_change(prev_state, vpres);
         full_pressure = max_pressure;
         time_base = get_time_base(new_state, min_velocity);
 
@@ -211,25 +209,29 @@ get_time_base(state, abs_neg_velocity) = time_base with {
 };
 
 calculate_curve(state, pressure, vpres, time_base, max_pressure, time_since) = curve_res with {
-    rel_targets = release_decay_target(time_since, time_base);
-    rel_diff = rel_targets : (_ - _);
-    rel_target = rel_targets : (!, _);
-    rel_ramp_time = ba.if(rel_diff > 0, (time_base / 20) * (1.0 / rel_diff), 0);
+    rel_data = release_decay(time_since, time_base);
+    rel_target = rel_data : (_, !);
+    rel_ramp_time = rel_data : (!, _);
 
-    target = ba.if(state == ATTACK, min(1, vpres * ATTACK_MOD), 
-                ba.if(state == INIT, 0.0001,
-                    ba.if((state == RELEASE)|(state == PLUCK), rel_target * max_pressure, pressure)));
+    target = ba.if((state:hbargraph("state", 0, 6)) == ATTACK, min(1, vpres * ATTACK_MOD), 
+                ba.if(state == INIT, 0.0,
+                    ba.if((state == RELEASE)|(state == PLUCK), rel_target, pressure)));
     ramp_time = ba.if(state == INIT, 0.0001,
-                    ba.if(state == RELEASE, rel_ramp_time, time_base));
+                    ba.if((state == RELEASE)|(state == PLUCK), rel_ramp_time, time_base));
     curve_res = ba.ramp(ramp_time, target);
 };
 
-release_decay_target(cur_time, max_time) = prev_target, cur_target with {
-    percent_total = ba.if(max_time > 0, (cur_time) / (max_time), 0);
-    target_position = ((percent_total * 20) : floor);
-    targets = (0.86, 0.74, 0.64, 0.55, 0.47, 0.40, 0.35, 0.30, 0.26, 0.22, 0.19, 0.16, 0.14, 0.12, 0.10, 0.08, 0.06, 0.03, 0.01, 0);
-    prev_target = ba.if(target_position>0, ba.selectn(20, target_position - 1, targets), 1.0);
-    cur_target = ba.selectn(20, target_position, targets);
+release_decay(cur_time, max_time) = end, slope with {
+    targets = (1, 0.86, 0.74, 0.64, 0.55, 0.47, 0.40, 0.35, 0.30, 0.26, 0.22, 0.19, 0.16, 0.14, 0.12, 0.10, 0.08, 0.06, 0.03, 0.01, 0);
+    time_per_section = max_time/section_count;
+    target_count = 21;
+    section_count = target_count - 1;
+    percent_total = ba.if(max_time > 0, (cur_time) / (max_time), 1.0);
+    start_index =  ((percent_total * target_count) : floor) : min(section_count - 1);
+    end_index = min(start_index + 1, section_count);
+    start = targets : ba.selectn(target_count, start_index);
+    end = targets : ba.selectn(target_count, end_index);
+    slope = (1 / (start - end)) * time_per_section;
 };
 
 lock_max_abs(threshold, hold_time, val) = peak with {
@@ -261,6 +263,7 @@ easeOutCirc(x) = y with {
 easeOutExpo(x) = y with {
     y = ba.if(x >= 1, 1, 1 - (2^(-10 * x)));
 };
+
 
 process = hgroup("strisy",
         sum(n, voicecount, vgroup("v%n", (note,pres,vpres,but_x,but_y)) : voice) // : vgroup("v%n", vmeter))
