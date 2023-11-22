@@ -188,7 +188,7 @@ percentSelect3(depth, left, center, right) = val with {
 // Get the amplitude based on the current state.
 get_amplitude(amp_in, vpres) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
     min_velocity = get_neg_velocity_abs(vpres, amp_in) : _ * 2.0 : min(1, _);
-    max_velocity = get_pos_velocity_abs(vpres, amp_in) : _ * 2.0 : min(1, _);
+    max_velocity = get_pos_velocity_abs(vpres, amp_in) : _ * 1.0 : min(1, _);
     get_amplitude_rec(prev_state, prev_amp, pressure) = (new_state, amplitude) with {
         pressures = amp_range(prev_state, pressure, prev_amp);
         min_pressure = pressures : (!, _, !);

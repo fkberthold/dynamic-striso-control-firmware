@@ -551,7 +551,7 @@ class mydsp : public dsp {
 			int 	iTemp14 = (fTemp12 <= 0.001f);
 			float 	fTemp15 = float((iTemp14 | ((0.5f * fVec3[1]) >= 0.001f)));
 			fRec11[0] = max((fRec11[1] * fTemp15), fSlow7);
-			float 	fTemp16 = min(1.0f, (2.0f * fRec11[0]));
+			float 	fTemp16 = min(1.0f, fRec11[0]);
 			int 	iTemp17 = (fTemp12 >= fRec8[1]);
 			int 	iTemp18 = (fRec8[1] <= 0.001f);
 			int 	iTemp19 = (((iRec7[1] >= 4)) ? (((iRec7[1] >= 6)) ? ((iTemp18) ? 0 : ((iTemp13) ? 1 : 6)) : (((iRec7[1] >= 5)) ? ((iTemp14) ? 3 : ((iTemp17) ? 4 : 5)) : ((iTemp14) ? 3 : (((fTemp12 <= fRec8[1])) ? 5 : 4)))) : (((iRec7[1] >= 2)) ? (((iRec7[1] >= 3)) ? (((iTemp14 & iTemp18)) ? 0 : ((iTemp13) ? 1 : 3)) : ((iTemp14) ? 3 : ((iTemp17) ? ((iTemp14) ? 6 : 4) : 2))) : (((iRec7[1] >= 1)) ? (((fRec8[1] >= min(fTemp16, 1.0f))) ? ((iTemp14) ? 6 : 2) : 1) : ((iTemp13) ? 1 : 0))));
@@ -605,7 +605,7 @@ class mydsp : public dsp {
 			int 	iTemp47 = (fTemp45 <= 0.001f);
 			float 	fTemp48 = float((iTemp47 | ((0.5f * fVec7[1]) >= 0.001f)));
 			fRec27[0] = max((fRec27[1] * fTemp48), fSlow21);
-			float 	fTemp49 = min(1.0f, (2.0f * fRec27[0]));
+			float 	fTemp49 = min(1.0f, fRec27[0]);
 			int 	iTemp50 = (fTemp45 >= fRec25[1]);
 			int 	iTemp51 = (fRec25[1] <= 0.001f);
 			int 	iTemp52 = (((iRec24[1] >= 4)) ? (((iRec24[1] >= 6)) ? ((iTemp51) ? 0 : ((iTemp46) ? 1 : 6)) : (((iRec24[1] >= 5)) ? ((iTemp47) ? 3 : ((iTemp50) ? 4 : 5)) : ((iTemp47) ? 3 : (((fTemp45 <= fRec25[1])) ? 5 : 4)))) : (((iRec24[1] >= 2)) ? (((iRec24[1] >= 3)) ? (((iTemp47 & iTemp51)) ? 0 : ((iTemp46) ? 1 : 3)) : ((iTemp47) ? 3 : ((iTemp50) ? ((iTemp47) ? 6 : 4) : 2))) : (((iRec24[1] >= 1)) ? (((fRec25[1] >= min(fTemp49, 1.0f))) ? ((iTemp47) ? 6 : 2) : 1) : ((iTemp46) ? 1 : 0))));
@@ -659,7 +659,7 @@ class mydsp : public dsp {
 			int 	iTemp80 = (fTemp78 <= 0.001f);
 			float 	fTemp81 = float((iTemp80 | ((0.5f * fVec11[1]) >= 0.001f)));
 			fRec43[0] = max((fRec43[1] * fTemp81), fSlow35);
-			float 	fTemp82 = min(1.0f, (2.0f * fRec43[0]));
+			float 	fTemp82 = min(1.0f, fRec43[0]);
 			int 	iTemp83 = (fTemp78 >= fRec41[1]);
 			int 	iTemp84 = (fRec41[1] <= 0.001f);
 			int 	iTemp85 = (((iRec40[1] >= 4)) ? (((iRec40[1] >= 6)) ? ((iTemp84) ? 0 : ((iTemp79) ? 1 : 6)) : (((iRec40[1] >= 5)) ? ((iTemp80) ? 3 : ((iTemp83) ? 4 : 5)) : ((iTemp80) ? 3 : (((fTemp78 <= fRec41[1])) ? 5 : 4)))) : (((iRec40[1] >= 2)) ? (((iRec40[1] >= 3)) ? (((iTemp80 & iTemp84)) ? 0 : ((iTemp79) ? 1 : 3)) : ((iTemp80) ? 3 : ((iTemp83) ? ((iTemp80) ? 6 : 4) : 2))) : (((iRec40[1] >= 1)) ? (((fRec41[1] >= min(fTemp82, 1.0f))) ? ((iTemp80) ? 6 : 2) : 1) : ((iTemp79) ? 1 : 0))));
@@ -713,7 +713,7 @@ class mydsp : public dsp {
 			int 	iTemp113 = (fTemp111 <= 0.001f);
 			float 	fTemp114 = float((iTemp113 | ((0.5f * fVec15[1]) >= 0.001f)));
 			fRec59[0] = max((fRec59[1] * fTemp114), fSlow49);
-			float 	fTemp115 = min(1.0f, (2.0f * fRec59[0]));
+			float 	fTemp115 = min(1.0f, fRec59[0]);
 			int 	iTemp116 = (fTemp111 >= fRec57[1]);
 			int 	iTemp117 = (fRec57[1] <= 0.001f);
 			int 	iTemp118 = (((iRec56[1] >= 4)) ? (((iRec56[1] >= 6)) ? ((iTemp117) ? 0 : ((iTemp112) ? 1 : 6)) : (((iRec56[1] >= 5)) ? ((iTemp113) ? 3 : ((iTemp116) ? 4 : 5)) : ((iTemp113) ? 3 : (((fTemp111 <= fRec57[1])) ? 5 : 4)))) : (((iRec56[1] >= 2)) ? (((iRec56[1] >= 3)) ? (((iTemp113 & iTemp117)) ? 0 : ((iTemp112) ? 1 : 3)) : ((iTemp113) ? 3 : ((iTemp116) ? ((iTemp113) ? 6 : 4) : 2))) : (((iRec56[1] >= 1)) ? (((fRec57[1] >= min(fTemp115, 1.0f))) ? ((iTemp113) ? 6 : 2) : 1) : ((iTemp112) ? 1 : 0))));
@@ -767,7 +767,7 @@ class mydsp : public dsp {
 			int 	iTemp146 = (fTemp144 <= 0.001f);
 			float 	fTemp147 = float((iTemp146 | ((0.5f * fVec19[1]) >= 0.001f)));
 			fRec75[0] = max((fRec75[1] * fTemp147), fSlow63);
-			float 	fTemp148 = min(1.0f, (2.0f * fRec75[0]));
+			float 	fTemp148 = min(1.0f, fRec75[0]);
 			int 	iTemp149 = (fTemp144 >= fRec73[1]);
 			int 	iTemp150 = (fRec73[1] <= 0.001f);
 			int 	iTemp151 = (((iRec72[1] >= 4)) ? (((iRec72[1] >= 6)) ? ((iTemp150) ? 0 : ((iTemp145) ? 1 : 6)) : (((iRec72[1] >= 5)) ? ((iTemp146) ? 3 : ((iTemp149) ? 4 : 5)) : ((iTemp146) ? 3 : (((fTemp144 <= fRec73[1])) ? 5 : 4)))) : (((iRec72[1] >= 2)) ? (((iRec72[1] >= 3)) ? (((iTemp146 & iTemp150)) ? 0 : ((iTemp145) ? 1 : 3)) : ((iTemp146) ? 3 : ((iTemp149) ? ((iTemp146) ? 6 : 4) : 2))) : (((iRec72[1] >= 1)) ? (((fRec73[1] >= min(fTemp148, 1.0f))) ? ((iTemp146) ? 6 : 2) : 1) : ((iTemp145) ? 1 : 0))));
@@ -821,7 +821,7 @@ class mydsp : public dsp {
 			int 	iTemp179 = (fTemp177 <= 0.001f);
 			float 	fTemp180 = float((iTemp179 | ((0.5f * fVec23[1]) >= 0.001f)));
 			fRec91[0] = max((fRec91[1] * fTemp180), fSlow77);
-			float 	fTemp181 = min(1.0f, (2.0f * fRec91[0]));
+			float 	fTemp181 = min(1.0f, fRec91[0]);
 			int 	iTemp182 = (fTemp177 >= fRec89[1]);
 			int 	iTemp183 = (fRec89[1] <= 0.001f);
 			int 	iTemp184 = (((iRec88[1] >= 4)) ? (((iRec88[1] >= 6)) ? ((iTemp183) ? 0 : ((iTemp178) ? 1 : 6)) : (((iRec88[1] >= 5)) ? ((iTemp179) ? 3 : ((iTemp182) ? 4 : 5)) : ((iTemp179) ? 3 : (((fTemp177 <= fRec89[1])) ? 5 : 4)))) : (((iRec88[1] >= 2)) ? (((iRec88[1] >= 3)) ? (((iTemp179 & iTemp183)) ? 0 : ((iTemp178) ? 1 : 3)) : ((iTemp179) ? 3 : ((iTemp182) ? ((iTemp179) ? 6 : 4) : 2))) : (((iRec88[1] >= 1)) ? (((fRec89[1] >= min(fTemp181, 1.0f))) ? ((iTemp179) ? 6 : 2) : 1) : ((iTemp178) ? 1 : 0))));
