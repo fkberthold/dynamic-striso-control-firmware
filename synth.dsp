@@ -75,7 +75,7 @@ bfQ3 = hslider("v:[2]config3/bfQ3[style:knob]",8,0.3,20,0.01);
 bflevel = hslider("v:[2]config3/bflevel[style:knob]",6,0.1,20,0.01);
 
 // Takes raw data as input, and outputs pretty sound waves.
-voice(note,pres,vpres,but_x,but_y1) = fullsound(level) //((os.osc(880) * ((ampl_res == 4)|(ampl_res == 5))) + (os.osc(440) * (ampl_res == 3))) * 0.25 //fullsound(level)
+voice(note,pres,vpres,but_x,but_y1) = fullsound(level)
 with {
     scaled_pres = easeInOutSine(realPres);
     freq = note2freq(note);
@@ -93,7 +93,7 @@ tamborGen(pres, realVpres, freq, amp) = wave with {
     phasor = os.phasor(ma.SR, freq) / ma.SR;
     triWave = ba.if(phasor < 0.5, phasor * 4 - 1, (1 - phasor) * 4 - 1);
     sawWave = phasor * 2 - 1;
-    diff = 0; //pres - amp;
+    diff = pres - amp;
     percent_saw = 0.25 + max(min(diff * 3, 0.3), -0.15);
     precent_triangle = (1 - percent_saw);
     base_wave = (triWave * precent_triangle) + (sawWave * percent_saw); 
@@ -119,11 +119,11 @@ PLUCK = 6;
 
 // When the y axis is toward the center,
 //  lean towards the center curve.
-ATTACK_T = 0.05 * ma.SR;
-DECAY_T = 0.2 * ma.SR;
-RELEASE_T = 0.05 * ma.SR;
-SUSTAIN_T = 0.1 * ma.SR;
-PLUCK_T = 4.0 * ma.SR;
+ATTACK_T = 0.3 * ma.SR;
+DECAY_T = 1.4 * ma.SR;
+RELEASE_T = 0.15 * ma.SR;
+SUSTAIN_T = 0.2 * ma.SR;
+PLUCK_T = 2.0 * ma.SR;
 
 // How much attack goes over the target.
 ATTACK_MOD = 1.0;
@@ -187,8 +187,8 @@ percentSelect3(depth, left, center, right) = val with {
 
 // Get the amplitude based on the current state.
 get_amplitude(amp_in, vpres) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
-    max_velocity = 1.0 ; //get_neg_velocity_abs(vpres, amp_in) : _ * 1.0 : min(1, _);
-    min_velocity = 1.0 ; //get_pos_velocity_abs(vpres, amp_in) : _ * 1.0 : min(1, _);
+    min_velocity = get_neg_velocity_abs(vpres, amp_in) : _ * 2.0 : min(1, _);
+    max_velocity = get_pos_velocity_abs(vpres, amp_in) : _ * 2.0 : min(1, _);
     get_amplitude_rec(prev_state, prev_amp, pressure) = (new_state, amplitude) with {
         pressures = amp_range(prev_state, pressure, prev_amp);
         min_pressure = pressures : (!, _, !);
@@ -215,7 +215,7 @@ calculate_curve(state, pressure, vpres, time_base, max_pressure, time_since) = c
 
     target = ba.if((state:hbargraph("state", 0, 6)) == ATTACK, min(1, vpres * ATTACK_MOD), 
                 ba.if(state == INIT, 0.0,
-                    ba.if((state == RELEASE)|(state == PLUCK), rel_target, pressure)));
+                    ba.if((state == RELEASE)|(state == PLUCK), rel_target * max_pressure, pressure)));
     ramp_time = ba.if(state == INIT, 0.0001,
                     ba.if((state == RELEASE)|(state == PLUCK), rel_ramp_time, time_base));
     curve_res = ba.ramp(ramp_time, target);
