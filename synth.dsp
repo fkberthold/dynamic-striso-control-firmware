@@ -79,33 +79,54 @@ voice(note,pres,vpres,but_x,but_y1) = fullsound(level)
 with {
     scaled_pres = easeInOutSine(realPres);
     freq = note2freq(note);
-    fullsound(ampl) = ampl <: (_, tamborGen(scaled_pres, vpres, freq)) :  *;
+    fullsound(ampl) = ampl <: (_, tamborGen(scaled_pres, vpres, freq, y)) :  *;
 
     timeSincePressureChange = (ba.time - time_changed(vpres)) / ma.SR;
+    y = but_y1; // : LPF(K_f0(20),0.71) : min(0.99);
     realPres = ba.if((timeSincePressureChange > 0.5) & (vpres == 0), 0, pres);
 
     ampl_res = (scaled_pres, vpres) : get_amplitude ;
     level = ampl_res : LPF(K_f0(20),0.71) : min(0.99);
 };
 
-// Determines the shape of the sound waves.
-tamborGen(pres, realVpres, freq, amp) = wave with {
-    phasor = os.phasor(ma.SR, freq) / ma.SR;
-    triWave = ba.if(phasor < 0.5, phasor * 4 - 1, (1 - phasor) * 4 - 1);
-    sawWave = phasor * 2 - 1;
-    diff = pres - amp;
-    percent_saw = 0.25 + max(min(diff * 3, 0.3), -0.15);
-    precent_triangle = (1 - percent_saw);
-    base_wave = (triWave * precent_triangle) + (sawWave * percent_saw); 
-
-    rem_harmonic = realVpres * 2;
-    add_harmonic = realVpres / 2;
-    wave_up1 = os.saw2(freq * ba.cent2ratio(23));
-    wave_dn1 = os.saw2(freq * ba.cent2ratio(-23));
-    wave = (base_wave * (0.6 - rem_harmonic)) + (wave_up1 * (0.2 + add_harmonic)) + (wave_dn1 * (0.2 + add_harmonic));
-//    wave = base_wave;
+double_phasor(wave_in) = ba.tabulate(0, helper, 500, 0, 1, wave_in).val with {
+    helper(wave) = (wave * 2) % 1;
+};
+phas_to_tri(phasor) = ba.tabulate(0, helper, 500, 0, 1, phasor).val with {
+    helper(phasor_in) = ba.if(phasor_in < 0.5, phasor_in * 4 - 1, (1 - phasor_in) * 4 - 1);
+};
+phas_to_saw(phasor) = ba.tabulate(0, helper, 500, 0, 1, phasor).val with {
+    helper(phasor_in) = (phasor_in * 2) - 1;
 };
 
+// Determines the shape of the sound waves.
+tamborGen(pres, realVpres, freq, y, amp) = wave with {
+    quarter = os.phasor(1, freq/4);
+    half = double_phasor(quarter);
+    full = double_phasor(half);
+    ampdiff = pres - amp;
+
+    triWave = phas_to_tri(full);
+    sawWave = phas_to_saw(full);
+    diff = pres - amp;
+    percent_saw = 0.15 + max(min(diff * 3, 0.3), -0.15);
+    precent_triangle = (1 - percent_saw);
+    base_wave = (triWave * precent_triangle) + (sawWave * percent_saw);
+
+    lower_harms = (phas_to_saw(quarter) * 0.33) + (phas_to_tri(half) * 0.67);
+    wave_up1 = os.saw2(freq * ba.cent2ratio(23));
+    wave_dn1 = os.saw2(freq * ba.cent2ratio(-23));
+    wave_up2 = os.saw2(freq * ba.cent2ratio(43));
+    wave_dn2 = os.saw2(freq * ba.cent2ratio(-43));
+    lower = lower_harms;
+    lower_amp = 0.05;
+
+    harmonic = ((wave_up1 * 0.3) + (wave_dn1 * 0.3)) + ((wave_up2 * 0.2) + (wave_dn2 * 0.2));
+    harmonic_amp = min(0.8, max(0.0, 0.1 + (-1 * (y / 2)) + ampdiff)); // + min(1,  max(y * 2, -1)); //min(0.45, max(0.25, 0.35 + realVpres));
+    base = base_wave;
+    base_wave_amp = 1.0 - harmonic_amp - lower_amp; // - white;
+    wave = (base * base_wave_amp) + (harmonic * harmonic_amp) + (lower * lower_amp); // + (white * no.noise);
+};
 
 // States for the state machine
 //  that controls the amplitude.
@@ -123,7 +144,7 @@ ATTACK_T = 0.3 * ma.SR;
 DECAY_T = 1.4 * ma.SR;
 RELEASE_T = 0.15 * ma.SR;
 SUSTAIN_T = 0.2 * ma.SR;
-PLUCK_T = 2.0 * ma.SR;
+PLUCK_T = 2.5 * ma.SR;
 
 // How much attack goes over the target.
 ATTACK_MOD = 1.0;
@@ -251,9 +272,11 @@ controlRate(note, pres, vpres, but_x, but_y) = (note, presC, vpresC, but_xC, but
     but_yC = ba.ramp(ma.SR/10, but_y);
 };
 
-// return -(Math.cos(Math.PI * x) - 1) / 2;
-easeInOutSine(x) = y with {
-    y = -1 * (cos(ma.PI * x) - 1) / 2;
+// Use tabulate to create a table of values for the curve.
+easeInOutSine(x_in) = ba.tabulate(0, helper, 500, 0, 1, x_in).val with {
+    helper(x) = y with {
+        y = -1 * (cos(ma.PI * x) - 1) / 2;
+    };
 };
 
 easeOutCirc(x) = y with {
