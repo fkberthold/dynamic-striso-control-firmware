@@ -143,7 +143,7 @@ PLUCK = 6;
 // When the y axis is toward the center,
 //  lean towards the center curve.
 ATTACK_T = 0.3 * ma.SR;
-DECAY_T = 1.4 * ma.SR;
+DECAY_T = 0.4 * ma.SR;
 RELEASE_T = 0.15 * ma.SR;
 SUSTAIN_T = 0.2 * ma.SR;
 PLUCK_T = 2.5 * ma.SR;
@@ -158,7 +158,7 @@ get_state(prev_state, time_since, pressure, max_pressure, max_velocity, amplitud
     // State transitions.
     from_init = ba.if((pressure > RELEASE_THRESHOLD), ATTACK, INIT);
     from_attack = ba.if(amplitude >= min(max_velocity * ATTACK_MOD, 1.0), ba.if(pressure <= RELEASE_THRESHOLD, PLUCK, DECAY), ATTACK);
-    from_decay = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, ba.if(pressure <= RELEASE_THRESHOLD, PLUCK, SUSTAIN_INCR), DECAY));
+    from_decay = ba.if(pressure <= RELEASE_THRESHOLD, PLUCK, ba.if(pressure >= amplitude, SUSTAIN_INCR, DECAY));
     from_sustain_incr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure <= amplitude, SUSTAIN_DECR, SUSTAIN_INCR));
     from_sustain_decr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, SUSTAIN_DECR));
     from_release = ba.if((pressure <= RELEASE_THRESHOLD) & (amplitude <= 0.001), INIT, ba.if(pressure > RELEASE_THRESHOLD, ATTACK, RELEASE));
@@ -211,7 +211,7 @@ percentSelect3(depth, left, center, right) = val with {
 // Get the amplitude based on the current state.
 get_amplitude(amp_in, vpres) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
     min_velocity = get_neg_velocity_abs(vpres, amp_in) : _ * 2.0 : min(1, _);
-    max_velocity = get_pos_velocity_abs(vpres, amp_in) : _ * 0.9 : min(1, _);
+    max_velocity = get_pos_velocity_abs(vpres, amp_in) : _ * 0.6 : min(1, _);
     get_amplitude_rec(prev_state, prev_amp, pressure) = (new_state, amplitude) with {
         pressures = amp_range(prev_state, pressure, prev_amp);
         min_pressure = pressures : (!, _, !);
