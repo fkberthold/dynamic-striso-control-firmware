@@ -142,22 +142,23 @@ PLUCK = 6;
 
 // When the y axis is toward the center,
 //  lean towards the center curve.
-ATTACK_T = 0.3 * ma.SR;
+ATTACK_T = 0.1 * ma.SR;
 DECAY_T = 0.4 * ma.SR;
 RELEASE_T = 0.15 * ma.SR;
 SUSTAIN_T = 0.2 * ma.SR;
 PLUCK_T = 2.5 * ma.SR;
 
 // How much attack goes over the target.
-ATTACK_MOD = 1.0;
+VEL_INC_MOD = 0.4;
+VEL_DEC_MOD = 3.5;
 
 // When to go from Decay to Release
-RELEASE_THRESHOLD = 0.001;
+RELEASE_THRESHOLD = 0.003;
 
-get_state(prev_state, time_since, pressure, max_pressure, max_velocity, amplitude) = next_state with {
+get_state(prev_state, time_since, pressure, max_pressure, min_velocity, max_velocity, amplitude) = next_state with {
     // State transitions.
     from_init = ba.if((pressure > RELEASE_THRESHOLD), ATTACK, INIT);
-    from_attack = ba.if(amplitude >= min(max_velocity * ATTACK_MOD, 1.0), ba.if(pressure <= RELEASE_THRESHOLD, PLUCK, DECAY), ATTACK);
+    from_attack = ba.if(amplitude >= min(max_velocity + min_velocity, 1.0), ba.if(pressure <= RELEASE_THRESHOLD, PLUCK, DECAY), ATTACK);
     from_decay = ba.if(pressure <= RELEASE_THRESHOLD, PLUCK, ba.if(pressure >= amplitude, SUSTAIN_INCR, DECAY));
     from_sustain_incr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure <= amplitude, SUSTAIN_DECR, SUSTAIN_INCR));
     from_sustain_decr = ba.if(pressure <= RELEASE_THRESHOLD, RELEASE, ba.if(pressure >= amplitude, SUSTAIN_INCR, SUSTAIN_DECR));
@@ -210,8 +211,8 @@ percentSelect3(depth, left, center, right) = val with {
 
 // Get the amplitude based on the current state.
 get_amplitude(amp_in, vpres) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
-    min_velocity = get_neg_velocity_abs(vpres, amp_in) : _ * 2.0 : min(1, _);
-    max_velocity = get_pos_velocity_abs(vpres, amp_in) : _ * 0.6 : min(1, _);
+    min_velocity = get_neg_velocity_abs(vpres, amp_in) : min(1, _);
+    max_velocity = get_pos_velocity_abs(vpres, amp_in) : min(1, _);
     get_amplitude_rec(prev_state, prev_amp, pressure) = (new_state, amplitude) with {
         pressures = amp_range(prev_state, pressure, prev_amp);
         min_pressure = pressures : (!, _, !);
@@ -219,26 +220,29 @@ get_amplitude(amp_in, vpres) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) 
         start_time = time_changed(prev_state);
         time_since = (ba.time - start_time);
         full_pressure = max_pressure;
-        time_base = get_time_base(new_state, min_velocity);
+        time_base = get_time_base(new_state, min_velocity, max_velocity);
 
-        amplitude = calculate_curve(prev_state, pressure, max_velocity, time_base, max_pressure, time_since);
-        new_state = get_state(prev_state, time_since, pressure, max_pressure, max_velocity, prev_amp);
+        amplitude = calculate_curve(prev_state, pressure, min_velocity, max_velocity, time_base, max_pressure, time_since);
+        new_state = get_state(prev_state, time_since, pressure, max_pressure, min_velocity, max_velocity, prev_amp);
     };
 };
 
-get_time_base(state, abs_neg_velocity) = time_base with {
+get_time_base(state, min_velocity, max_velocity) = time_base with {
+    vel_diff = max_velocity + min_velocity;
     multiplier = ba.selectn(7, state, 0, ATTACK_T, DECAY_T, RELEASE_T, SUSTAIN_T, SUSTAIN_T, PLUCK_T);
-    time_base = ba.if(state == PLUCK, PLUCK_T * abs_neg_velocity, multiplier);
+    time_base = ba.if(state == PLUCK, PLUCK_T * vel_diff, multiplier);
 };
 
-calculate_curve(state, pressure, vpres, time_base, max_pressure, time_since) = curve_res with {
+calculate_curve(state, pressure, min_velocity, max_velocity, time_base, max_pressure, time_since) = curve_res with {
+    vel_diff = max_velocity + min_velocity;
     rel_data = release_decay(time_since, time_base);
     rel_target = rel_data : (_, !);
     rel_ramp_time = rel_data : (!, _);
 
-    target = ba.if((state:hbargraph("state", 0, 6)) == ATTACK, min(1, vpres * ATTACK_MOD), 
+    target = ba.if(state == ATTACK, min(1, vel_diff), 
                 ba.if(state == INIT, 0.0,
-                    ba.if((state == RELEASE)|(state == PLUCK), rel_target * max_pressure, pressure)));
+                    ba.if(state == PLUCK, rel_target * vel_diff,
+                        ba.if(state == RELEASE, rel_target * max_pressure, pressure))));
     ramp_time = ba.if(state == INIT, 0.0001,
                     ba.if((state == RELEASE)|(state == PLUCK), rel_ramp_time, time_base));
     curve_res = ba.ramp(ramp_time, target);
@@ -288,7 +292,6 @@ easeOutCirc(x) = y with {
 easeOutExpo(x) = y with {
     y = ba.if(x >= 1, 1, 1 - (2^(-10 * x)));
 };
-
 
 process = hgroup("strisy",
         sum(n, voicecount, vgroup("v%n", (note,pres,vpres,but_x,but_y)) : voice) // : vgroup("v%n", vmeter))
