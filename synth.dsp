@@ -146,7 +146,7 @@ ATTACK_T = 0.1 * ma.SR;
 DECAY_T = 0.4 * ma.SR;
 RELEASE_T = 0.15 * ma.SR;
 SUSTAIN_T = 0.2 * ma.SR;
-PLUCK_T = 2.5 * ma.SR;
+PLUCK_T = 2.0 * ma.SR;
 
 // How much attack goes over the target.
 VEL_INC_MOD = 0.4;
