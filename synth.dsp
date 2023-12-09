@@ -149,8 +149,8 @@ SUSTAIN_T = 0.2 * ma.SR;
 PLUCK_T = 2.0 * ma.SR;
 
 // How much attack goes over the target.
-VEL_INC_MOD = 0.4;
-VEL_DEC_MOD = 3.5;
+VEL_INC_MOD = 8.0;
+VEL_DEC_MOD = 4.0;
 
 // When to go from Decay to Release
 RELEASE_THRESHOLD = 0.003;
@@ -211,8 +211,8 @@ percentSelect3(depth, left, center, right) = val with {
 
 // Get the amplitude based on the current state.
 get_amplitude(amp_in, vpres) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
-    min_velocity = get_neg_velocity_abs(vpres, amp_in) : min(1, _);
-    max_velocity = get_pos_velocity_abs(vpres, amp_in) : min(1, _);
+    min_velocity = get_neg_velocity_abs(vpres, amp_in) : min(1, _) : easeInOutSine;
+    max_velocity = get_pos_velocity_abs(vpres, amp_in) : min(1, _) : easeInOutSine;
     get_amplitude_rec(prev_state, prev_amp, pressure) = (new_state, amplitude) with {
         pressures = amp_range(prev_state, pressure, prev_amp);
         min_pressure = pressures : (!, _, !);
