@@ -111,7 +111,7 @@ tamborGen(pres, realVpres, freq, y, amp, state) = wave with {
     triWave = phas_to_tri(full);
     sawWave = phas_to_saw(full);
     diff = pres - amp;
-    percent_saw = min(1, 0.15 + max(min(diff * 3, 0.3), -0.13));
+    percent_saw = min(1, 0.15 + max(min(diff * 3, 0.3), -0.2));
     percent_triangle = (1 - percent_saw);
     base_wave = (triWave * percent_triangle) + (sawWave * percent_saw);
 

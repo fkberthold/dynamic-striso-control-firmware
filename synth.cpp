@@ -741,7 +741,7 @@ class mydsp : public dsp {
 			float 	fTemp50 = ftbl2[iTemp49];
 			int 	iTemp51 = max(0, min((iTemp48 + 1), 499));
 			float 	fTemp52 = (fTemp47 - float(iTemp48));
-			float 	fTemp53 = min(1.0f, (max(min((3.0f * fTemp44), 0.3f), -0.13f) + 0.15f));
+			float 	fTemp53 = min(1.0f, (max(min((3.0f * fTemp44), 0.3f), -0.2f) + 0.15f));
 			float 	fTemp54 = ftbl0[iTemp49];
 			float 	fTemp55 = ((iTemp2) ? 0.0f : (fSlow18 + fRec23[1]));
 			fRec23[0] = (fTemp55 - floorf(fTemp55));
@@ -813,7 +813,7 @@ class mydsp : public dsp {
 			float 	fTemp100 = ftbl2[iTemp99];
 			int 	iTemp101 = max(0, min((iTemp98 + 1), 499));
 			float 	fTemp102 = (fTemp97 - float(iTemp98));
-			float 	fTemp103 = min(1.0f, (max(min((3.0f * fTemp94), 0.3f), -0.13f) + 0.15f));
+			float 	fTemp103 = min(1.0f, (max(min((3.0f * fTemp94), 0.3f), -0.2f) + 0.15f));
 			float 	fTemp104 = ftbl0[iTemp99];
 			float 	fTemp105 = ((iTemp2) ? 0.0f : (fSlow35 + fRec41[1]));
 			fRec41[0] = (fTemp105 - floorf(fTemp105));
@@ -885,7 +885,7 @@ class mydsp : public dsp {
 			float 	fTemp150 = ftbl2[iTemp149];
 			int 	iTemp151 = max(0, min((iTemp148 + 1), 499));
 			float 	fTemp152 = (fTemp147 - float(iTemp148));
-			float 	fTemp153 = min(1.0f, (max(min((3.0f * fTemp144), 0.3f), -0.13f) + 0.15f));
+			float 	fTemp153 = min(1.0f, (max(min((3.0f * fTemp144), 0.3f), -0.2f) + 0.15f));
 			float 	fTemp154 = ftbl0[iTemp149];
 			float 	fTemp155 = ((iTemp2) ? 0.0f : (fSlow52 + fRec59[1]));
 			fRec59[0] = (fTemp155 - floorf(fTemp155));
@@ -957,7 +957,7 @@ class mydsp : public dsp {
 			float 	fTemp200 = ftbl2[iTemp199];
 			int 	iTemp201 = max(0, min((iTemp198 + 1), 499));
 			float 	fTemp202 = (fTemp197 - float(iTemp198));
-			float 	fTemp203 = min(1.0f, (max(min((3.0f * fTemp194), 0.3f), -0.13f) + 0.15f));
+			float 	fTemp203 = min(1.0f, (max(min((3.0f * fTemp194), 0.3f), -0.2f) + 0.15f));
 			float 	fTemp204 = ftbl0[iTemp199];
 			float 	fTemp205 = ((iTemp2) ? 0.0f : (fSlow69 + fRec77[1]));
 			fRec77[0] = (fTemp205 - floorf(fTemp205));
@@ -1029,7 +1029,7 @@ class mydsp : public dsp {
 			float 	fTemp250 = ftbl2[iTemp249];
 			int 	iTemp251 = max(0, min((iTemp248 + 1), 499));
 			float 	fTemp252 = (fTemp247 - float(iTemp248));
-			float 	fTemp253 = min(1.0f, (max(min((3.0f * fTemp244), 0.3f), -0.13f) + 0.15f));
+			float 	fTemp253 = min(1.0f, (max(min((3.0f * fTemp244), 0.3f), -0.2f) + 0.15f));
 			float 	fTemp254 = ftbl0[iTemp249];
 			float 	fTemp255 = ((iTemp2) ? 0.0f : (fSlow86 + fRec95[1]));
 			fRec95[0] = (fTemp255 - floorf(fTemp255));
@@ -1101,7 +1101,7 @@ class mydsp : public dsp {
 			float 	fTemp300 = ftbl2[iTemp299];
 			int 	iTemp301 = max(0, min((iTemp298 + 1), 499));
 			float 	fTemp302 = (fTemp297 - float(iTemp298));
-			float 	fTemp303 = min(1.0f, (max(min((3.0f * fTemp294), 0.3f), -0.13f) + 0.15f));
+			float 	fTemp303 = min(1.0f, (max(min((3.0f * fTemp294), 0.3f), -0.2f) + 0.15f));
 			float 	fTemp304 = ftbl0[iTemp299];
 			fRec0[0] = ((1.37f * ((((((fTemp293 * ((((((fTemp304 + (fTemp302 * (ftbl0[iTemp301] - fTemp304))) * (1.0f - fTemp303)) + (fTemp303 * (fTemp300 + (fTemp302 * (ftbl2[iTemp301] - fTemp300))))) * (1.0f - (fTemp295 + fSlow88))) + (0.5f * (fTemp295 * (((2.0f * fRec100) + -1.0f) + ((2.0f * fRec98) + -1.0f))))) + (fSlow88 * ((0.33f * (fTemp262 + ((fTemp260 - float(iTemp261)) * (ftbl0[max(0, min((iTemp261 + 1), 499))] - fTemp262)))) + (0.67f * (fTemp258 + ((fTemp256 - float(iTemp257)) * (ftbl0[max(0, min((iTemp257 + 1), 499))] - fTemp258)))))))) + (fTemp243 * ((((((fTemp254 + (fTemp252 * (ftbl0[iTemp251] - fTemp254))) * (1.0f - fTemp253)) + (fTemp253 * (fTemp250 + (fTemp252 * (ftbl2[iTemp251] - fTemp250))))) * (1.0f - (fTemp245 + fSlow71))) + (0.5f * (fTemp245 * (((2.0f * fRec82) + -1.0f) + ((2.0f * fRec80) + -1.0f))))) + (fSlow71 * ((0.33f * (fTemp212 + ((fTemp210 - float(iTemp211)) * (ftbl0[max(0, min((iTemp211 + 1), 499))] - fTemp212)))) + (0.67f * (fTemp208 + ((fTemp206 - float(iTemp207)) * (ftbl0[max(0, min((iTemp207 + 1), 499))] - fTemp208))))))))) + (fTemp193 * ((((((fTemp204 + (fTemp202 * (ftbl0[iTemp201] - fTemp204))) * (1.0f - fTemp203)) + (fTemp203 * (fTemp200 + (fTemp202 * (ftbl2[iTemp201] - fTemp200))))) * (1.0f - (fTemp195 + fSlow54))) + (0.5f * (fTemp195 * (((2.0f * fRec64) + -1.0f) + ((2.0f * fRec62) + -1.0f))))) + (fSlow54 * ((0.33f * (fTemp162 + ((fTemp160 - float(iTemp161)) * (ftbl0[max(0, min((iTemp161 + 1), 499))] - fTemp162)))) + (0.67f * (fTemp158 + ((fTemp156 - float(iTemp157)) * (ftbl0[max(0, min((iTemp157 + 1), 499))] - fTemp158))))))))) + (fTemp143 * ((((((fTemp154 + (fTemp152 * (ftbl0[iTemp151] - fTemp154))) * (1.0f - fTemp153)) + (fTemp153 * (fTemp150 + (fTemp152 * (ftbl2[iTemp151] - fTemp150))))) * (1.0f - (fTemp145 + fSlow37))) + (0.5f * (fTemp145 * (((2.0f * fRec46) + -1.0f) + ((2.0f * fRec44) + -1.0f))))) + (fSlow37 * ((0.33f * (fTemp112 + ((fTemp110 - float(iTemp111)) * (ftbl0[max(0, min((iTemp111 + 1), 499))] - fTemp112)))) + (0.67f * (fTemp108 + ((fTemp106 - float(iTemp107)) * (ftbl0[max(0, min((iTemp107 + 1), 499))] - fTemp108))))))))) + (fTemp93 * ((((((fTemp104 + (fTemp102 * (ftbl0[iTemp101] - fTemp104))) * (1.0f - fTemp103)) + (fTemp103 * (fTemp100 + (fTemp102 * (ftbl2[iTemp101] - fTemp100))))) * (1.0f - (fTemp95 + fSlow20))) + (0.5f * (fTemp95 * (((2.0f * fRec28) + -1.0f) + ((2.0f * fRec26) + -1.0f))))) + (fSlow20 * ((0.33f * (fTemp62 + ((fTemp60 - float(iTemp61)) * (ftbl0[max(0, min((iTemp61 + 1), 499))] - fTemp62)))) + (0.67f * (fTemp58 + ((fTemp56 - float(iTemp57)) * (ftbl0[max(0, min((iTemp57 + 1), 499))] - fTemp58))))))))) + (fTemp43 * ((((((fTemp54 + (fTemp52 * (ftbl0[iTemp51] - fTemp54))) * (1.0f - fTemp53)) + (fTemp53 * (fTemp50 + (fTemp52 * (ftbl2[iTemp51] - fTemp50))))) * (1.0f - (fTemp45 + fSlow3))) + (0.5f * (fTemp45 * (((2.0f * fRec7) + -1.0f) + ((2.0f * fRec5) + -1.0f))))) + (fSlow3 * ((0.33f * (fTemp10 + ((fTemp8 - float(iTemp9)) * (ftbl0[max(0, min((iTemp9 + 1), 499))] - fTemp10)))) + (0.67f * (fTemp6 + ((fTemp4 - float(iTemp5)) * (ftbl0[max(0, min((iTemp5 + 1), 499))] - fTemp6)))))))))) - (fConst8 * ((fConst6 * fRec0[2]) + (fConst4 * fRec0[1]))));
 			output0[i] = (FAUSTFLOAT)(((fConst27 * fRec0[1]) + (fConst8 * (fRec0[0] + fRec0[2]))));
