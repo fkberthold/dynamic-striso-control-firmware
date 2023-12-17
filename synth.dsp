@@ -146,7 +146,7 @@ ATTACK_T = 0.1 * ma.SR;
 DECAY_T = 0.4 * ma.SR;
 RELEASE_T = 0.15 * ma.SR;
 SUSTAIN_T = 0.2 * ma.SR;
-PLUCK_T = 2.0 * ma.SR;
+PLUCK_T = 1.0 * ma.SR;
 
 // How much attack goes over the target.
 VEL_INC_MOD = 0.4;
@@ -230,7 +230,7 @@ get_amplitude(amp_in, vpres) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) 
 get_time_base(state, min_velocity, max_velocity) = time_base with {
     vel_diff = max_velocity + min_velocity;
     multiplier = ba.selectn(7, state, 0, ATTACK_T, DECAY_T, RELEASE_T, SUSTAIN_T, SUSTAIN_T, PLUCK_T);
-    time_base = ba.if(state == PLUCK, PLUCK_T * vel_diff, multiplier);
+    time_base = multiplier; 
 };
 
 calculate_curve(state, pressure, min_velocity, max_velocity, time_base, max_pressure, time_since) = curve_res with {
