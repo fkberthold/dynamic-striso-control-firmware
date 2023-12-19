@@ -77,15 +77,16 @@ bflevel = hslider("v:[2]config3/bflevel[style:knob]",6,0.1,20,0.01);
 // Takes raw data as input, and outputs pretty sound waves.
 voice(note,pres,vpres,but_x,but_y1) = fullsound(level)
 with {
+    realVpres = vpres * 0.9;
     scaled_pres = easeInOutSine(realPres);
     freq = note2freq(note);
-    fullsound(ampl) = ampl <: (_, tamborGen(scaled_pres, vpres, freq, y)) :  *;
+    fullsound(ampl) = ampl <: (_, tamborGen(scaled_pres, realVpres, freq, y)) :  *;
 
-    timeSincePressureChange = (ba.time - time_changed(vpres)) / ma.SR;
+    timeSincePressureChange = (ba.time - time_changed(realVpres)) / ma.SR;
     y = but_y1; // : LPF(K_f0(20),0.71) : min(0.99);
     realPres = ba.if((timeSincePressureChange > 0.5) & (vpres == 0), 0, pres);
 
-    ampl_res = (scaled_pres, vpres) : get_amplitude ;
+    ampl_res = (scaled_pres, realVpres) : get_amplitude ;
     level = ampl_res : LPF(K_f0(20),0.71) : min(0.99);
 };
 
@@ -98,36 +99,56 @@ phas_to_tri(phasor) = ba.tabulate(0, helper, 500, 0, 1, phasor).lin with {
 phas_to_saw(phasor) = ba.tabulate(0, helper, 500, 0, 1, phasor).lin with {
     helper(phasor_in) = (phasor_in * 2) - 1;
 };
+phas_to_sin(phasor) = ba.tabulate(0, helper, 500, 0, 1, phasor).lin with {
+    helper(phasor_in) = sin(phasor_in * ma.PI * 2);
+};
 
 
 // Determines the shape of the sound waves.
 tamborGen(pres, realVpres, freq, y, amp, state) = wave with {
     quarter = os.phasor(1, freq/4);
-    half = os.phasor(1, freq/2);//double_phasor(quarter);
-    full = os.phasor(1, freq); //double_phasor(half);
+    half = os.phasor(1, freq/2);
+    full = os.phasor(1, freq); 
+    double = os.phasor(1, freq * 2);
     ampdiff = pres - amp;
     scale_y = easeInOutSine(y);
 
+    // Naturalizer
+    white_note = no.noise : BPF(freq * (0.05/750), 102);
+    white_amp = ((1-pres) * 0.3) + ba.if(scale_y > 0, y, 0);
+
+    sinWave = phas_to_sin(full);
     triWave = phas_to_tri(full);
     sawWave = phas_to_saw(full);
-    diff = pres - amp;
-    percent_saw = min(1, 0.15 + max(min(diff * 3, 0.3), -0.2));
+    percent_saw = min(1, 0.15 + max(min(ampdiff * 3, 0.3), -0.2));
     percent_triangle = (1 - percent_saw);
-    base_wave = (triWave * percent_triangle) + (sawWave * percent_saw);
+    tri_saw_wave = (triWave * percent_triangle) + (sawWave * percent_saw);
+    formed_wave = ba.if(scale_y > 0, (tri_saw_wave * (1-scale_y)) + (sinWave * scale_y), tri_saw_wave);
+    base_wave = (formed_wave * (1 - white_amp)) + (white_note * white_amp);
 
     lower_harms = (phas_to_tri(quarter) * 0.33) + (phas_to_tri(half) * 0.67);
     wave_up1 = os.saw2(freq * ba.cent2ratio(23));
     wave_dn1 = os.saw2(freq * ba.cent2ratio(-23));
     lower = lower_harms;
-    lower_amp = ba.if(freq >= 80, 0.1, 0);
+    lower_amp = ba.if(freq >= 80, 0.1, 0) * scale_y;
 
-    harmonic = ((wave_up1 * 0.5) + (wave_dn1 * 0.5)); // + ((wave_up2 * 0.2) + (wave_dn2 * 0.2));
+
+
+    // Sidebands to give a cycle effect when
+    //  playing chords.
+    down_ocatve = phas_to_tri(half);
+    up_octave = phas_to_tri(double);
+    side_bands = ba.if(scale_y<0, (down_ocatve * 0.5) + (up_octave * 0.5), ((down_ocatve * 0.5) + (up_octave * 0.5)) * (1-(scale_y)));
+
+    harmonic = ((wave_up1 * 0.5) + (wave_dn1 * 0.5));
     // consider easing function for y.
     // consider overdrive on pressure.
     harmonic_amp =  min(0.8, max(0.0, 0.05 + (-1 * (ba.if(scale_y < 0, scale_y / 2, scale_y))) + max(-0.75, ampdiff)));
+    side_bands_amp = max(0, (ampdiff - harmonic_amp) - lower_amp - 0.5);
     base = base_wave;
-    base_wave_amp = 1.0 - harmonic_amp - lower_amp; // - white;
-    wave = (base * base_wave_amp) + (harmonic * harmonic_amp) + (lower * lower_amp); // + (white * no.noise);
+    base_wave_amp = ((1.0 - harmonic_amp) - lower_amp) - side_bands_amp; // - white;
+    wave = (base * base_wave_amp) + (harmonic * harmonic_amp) + (lower * lower_amp) + (side_bands_amp * side_bands);
+//    wave = white_amp * white_note; //(base * base_wave_amp) + (harmonic * harmonic_amp) + (lower * lower_amp) + (side_bands_amp * side_bands);
 };
 
 // States for the state machine
@@ -235,30 +256,21 @@ get_time_base(state, min_velocity, max_velocity) = time_base with {
 
 calculate_curve(state, pressure, min_velocity, max_velocity, time_base, max_pressure, time_since) = curve_res with {
     vel_diff = max_velocity + min_velocity;
-    rel_data = release_decay(time_since, time_base);
-    rel_target = rel_data : (_, !);
-    rel_ramp_time = rel_data : (!, _);
+    rel_target = release_decay_rate(ba.if(time_base > 0, time_since/time_base, 0));
 
     target = ba.if(state == ATTACK, min(1, vel_diff), 
                 ba.if(state == INIT, 0.0,
                     ba.if(state == PLUCK, rel_target * vel_diff,
                         ba.if(state == RELEASE, rel_target * max_pressure, pressure))));
     ramp_time = ba.if(state == INIT, 0.0001,
-                    ba.if((state == RELEASE)|(state == PLUCK), rel_ramp_time, time_base));
+                    ba.if((state == RELEASE)|(state == PLUCK), time_base/21, time_base));
     curve_res = ba.ramp(ramp_time, target);
 };
 
-release_decay(cur_time, max_time) = end, slope with {
-    targets = (1, 0.86, 0.74, 0.64, 0.55, 0.47, 0.40, 0.35, 0.30, 0.26, 0.22, 0.19, 0.16, 0.14, 0.12, 0.10, 0.08, 0.06, 0.03, 0.01, 0);
-    time_per_section = max_time/section_count;
-    target_count = 21;
-    section_count = target_count - 1;
-    percent_total = ba.if(max_time > 0, (cur_time) / (max_time), 1.0);
-    start_index =  ((percent_total * target_count) : floor) : min(section_count - 1);
-    end_index = min(start_index + 1, section_count);
-    start = targets : ba.selectn(target_count, start_index);
-    end = targets : ba.selectn(target_count, end_index);
-    slope = (1 / (start - end)) * time_per_section;
+release_decay_rate(x_in) = ba.tabulate(0, helper, 21, 0, 1, x_in).lin with {
+    helper(x) = y with {
+        y = ba.selectn(21, int(x * 21), 1, 0.86, 0.74, 0.64, 0.55, 0.47, 0.40, 0.35, 0.30, 0.26, 0.22, 0.19, 0.16, 0.14, 0.12, 0.10, 0.08, 0.06, 0.03, 0.01, 0);
+    };
 };
 
 lock_max_abs(threshold, hold_time, val) = peak with {
