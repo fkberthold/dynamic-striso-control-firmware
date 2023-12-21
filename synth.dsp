@@ -106,14 +106,24 @@ phas_to_sin(phasor) = ba.tabulate(0, helper, 500, 0, 1, phasor).lin with {
 
 // Determines the shape of the sound waves.
 tamborGen(pres, realVpres, freq, y, amp, state) = wave with {
+    // Control modifier    
+    scale_y = easeInOutSine(y);
+    ampdiff = pres - amp;
+
+    // phasors for the different harmonics.
     quarter = os.phasor(1, freq/4);
     half = os.phasor(1, freq/2);
     full = os.phasor(1, freq); 
     double = os.phasor(1, freq * 2);
-    ampdiff = pres - amp;
-    scale_y = easeInOutSine(y);
 
-    // Naturalizer
+    // Noisy sources.
+    noise = os.noise; 
+
+    white_note = no.noise : BPF(freq * (0.05/325), 802);
+
+    wave = white_note;//os.osc(freq);
+
+    /*
     white_note = no.noise : BPF(freq * (0.05/750), 102);
     white_amp = ((1-pres) * 0.3) + ba.if(scale_y > 0, y, 0);
 
@@ -149,6 +159,7 @@ tamborGen(pres, realVpres, freq, y, amp, state) = wave with {
     base_wave_amp = ((1.0 - harmonic_amp) - lower_amp) - side_bands_amp; // - white;
     wave = (base * base_wave_amp) + (harmonic * harmonic_amp) + (lower * lower_amp) + (side_bands_amp * side_bands);
 //    wave = white_amp * white_note; //(base * base_wave_amp) + (harmonic * harmonic_amp) + (lower * lower_amp) + (side_bands_amp * side_bands);
+    */
 };
 
 // States for the state machine
