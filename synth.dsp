@@ -106,10 +106,17 @@ phas_to_sqr(phasor) = ba.tabulate(0, helper, 500, 0, 1, phasor).lin with {
     helper(phasor_in) = ba.if(phasor_in < 0.5, 1, -1);
 };
 
+max_amp_lock(y_in, pres_in) = peak_out with {
+    lowest_val = ba.peakhold(((pres_in' <= 0) & (pres_in > 0) != 1), -1 * y_in);
+    highest_val = ba.peakhold(((pres_in' <= 0) & (pres_in > 0)) != 1, y_in);
+    peak_out = ba.if(highest_val > lowest_val, highest_val, -1 * lowest_val);
+};
+
 // Determines the shape of the sound waves.
 tamborGen(pres, vpres, freq, y, amp, state) = wave with {
     // Control modifier    
     scale_y = easeInOutSine(y);
+    lock_y = max_amp_lock(y, pres);
     ampdiff = pres - amp;
 
     // phasors for the different harmonics.
@@ -122,7 +129,9 @@ tamborGen(pres, vpres, freq, y, amp, state) = wave with {
     // Main wave.
     triWave = phas_to_tri(full);
     sawWave = phas_to_saw(full);
-    saw_wave_amp = max(min(((scale_y * -0.8) + 0.2)  + (ampdiff/2), 1), 0);
+    saw_wave_amp = ba.if(pres <= 0,
+                        max(min(((lock_y * -0.8) + 0.2)  + (ampdiff/2), 1), 0),
+                        max(min(((scale_y * -0.8) + 0.2)  + (ampdiff/2), 1), 0));
     tri_wave_amp = 1 - (saw_wave_amp);
     formed_wave = ((triWave * tri_wave_amp) + (sawWave * saw_wave_amp)) : ba.ramp(ma.SR * 0.0003);
 
