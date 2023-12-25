@@ -20,16 +20,6 @@ halftime2fac_fast(x) = 1-0.7*(1./(SR*x));
 //smooth(c)        = *(1-c) : +~*(c);
 smooth(x) = maxmsp.line(x,2);
 
-envdecay(c) = (max:_ * c) ~ _;
-
-dotpart(x) = x - int(x);
-
-oscss(freq, even_harm) = even_harm*saw-(1-even_harm)*square
-with {
-    square = os.lf_squarewave(freq)*0.5;
-    saw = os.saw2(freq);
-};
-
 note = vslider("[0]note[style:knob]",69,0,127,.01);
 pres = vslider("[1]pres[style:knob]",0,0,1,0.01);
 vpres = vslider("[2]vpres[style:knob]",0,-1,1,0.01);
@@ -92,20 +82,11 @@ with {
     level = ampl_res : LPF(K_f0(20),0.71) : min(0.99);
 };
 
-double_phasor(wave_in) = ba.tabulate(0, helper, 1000, 0, 1, wave_in).lin with {
-    helper(wave) = (wave * 2) % 1;
-};
 phas_to_tri(phasor) = ba.tabulate(0, helper, 500, 0, 1, phasor).lin with {
     helper(phasor_in) = ba.if(phasor_in < 0.5, phasor_in * 4 - 1, (1 - phasor_in) * 4 - 1);
 };
 phas_to_saw(phasor) = ba.tabulate(0, helper, 500, 0, 1, phasor).lin with {
     helper(phasor_in) = (phasor_in * 2) - 1;
-};
-phas_to_sin(phasor) = ba.tabulate(0, helper, 500, 0, 1, phasor).lin with {
-    helper(phasor_in) = sin(phasor_in * ma.PI * 2);
-};
-phas_to_sqr(phasor) = ba.tabulate(0, helper, 500, 0, 1, phasor).lin with {
-    helper(phasor_in) = ba.if(phasor_in < 0.5, 1, -1);
 };
 
 lock_max_amp(y, pres) = peak with {
@@ -170,10 +151,6 @@ RELEASE_T = 0.15 * ma.SR;
 SUSTAIN_T = 0.2 * ma.SR;
 PLUCK_T = 1.0 * ma.SR;
 
-// How much attack goes over the target.
-VEL_INC_MOD = 0.4;
-VEL_DEC_MOD = 3.5;
-
 // When to go from Decay to Release
 RELEASE_THRESHOLD = 0.003;
 
@@ -214,22 +191,6 @@ get_neg_velocity_abs(velocity, pressure) = get_pos_velocity_abs(-1 * velocity, p
 
 // get the maximum value since the state changed.
 max_since_state_change(state, val) = val : ba.peakhold(state != state');
-
-sinScaler(vin) = (1 - cos(vin * 0.5 * ma.PI)) * ma.signum(vin);
-
-// select from 3 values based on the depth from -1 to 1
-//  giving a percentage of the value between them so that
-//  -1 gives the first value,
-//   0 gives the middle value,
-//   1 gives the last value
-//   values between those will give a percentage depending on how
-//   close they are to each.
-percentSelect3(depth, left, center, right) = val with {
-    dist_from_zero = abs(depth);
-    dist_from_one = 1 - dist_from_zero;
-
-    val = select3(ma.signum(depth) + 1, left, center, right) * dist_from_zero + center * dist_from_one; 
-};
 
 // Get the amplitude based on the current state.
 get_amplitude(amp_in, vpres) = (amp_in) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
@@ -274,23 +235,6 @@ release_decay_rate(x_in) = ba.tabulate(0, helper, 21, 0, 1, x_in).lin with {
     };
 };
 
-lock_max_abs(threshold, hold_time, val) = peak with {
-    pos_time = ba.if(val < (-threshold), 0, hold_time);
-    neg_time = ba.if(val > threshold, 0, hold_time);
-    pos_peak = ba.peakholder(ma.SR * pos_time, max(0, val));
-    neg_peak = ba.peakholder(ma.SR * neg_time, min(0, val) * -1);
-    peak = ba.if(pos_peak > neg_peak, pos_peak, -neg_peak);
-};
-
-//process = (amp_in, throttle_in) : (_, hold_max_abs(0.01, RELEASE_PLUCK)) : get_amplitude;
-
-controlRate(note, pres, vpres, but_x, but_y) = (note, presC, vpresC, but_xC, but_yC) with {
-    presC = pres;
-    vpresC = ba.ramp(ma.SR/10, vpres);
-    but_xC = but_x;
-    but_yC = ba.ramp(ma.SR/10, but_y);
-};
-
 // Use tabulate to create a table of values for the curve.
 easeInOutSine(x_in) = ba.tabulate(0, helper, 1000, -1, 1, x_in).val with {
     helper(x) = y with {
@@ -298,22 +242,13 @@ easeInOutSine(x_in) = ba.tabulate(0, helper, 1000, -1, 1, x_in).val with {
     };
 };
 
-easeOutCirc(x) = y with {
-    y = sqrt(1 - ((x - 1)^2));
-};
-
-easeOutExpo(x) = y with {
-    y = ba.if(x >= 1, 1, 1 - (2^(-10 * x)));
-};
-
 change_in(x) = x - x';
 
 jerk_x = abs(acc_x) : change_in;
 
 max_jerk_x = ba.peakholder(ma.SR * 0.3, jerk_x);
-max_y = ba.peakholder(ma.SR, abs(acc_y));
-max_z = ba.peakholder(ma.SR, abs(acc_z));
 
+<<<<<<< Updated upstream
 jerk_rot_z = rot_z : change_in;
 max_rot_z = ba.peakholder(ma.SR * 0.1, abs(rot_z));
 drum_freq = 60 + (max_rot_z * 500);// + (max_rot_z);
@@ -322,6 +257,13 @@ drum_freq = 60 + (max_rot_z * 500);// + (max_rot_z);
 //drum = sy.popFilterDrum(drum_freq, 40, (jerk_x > 0.05) & (acc_y < (-1 * acc_z))); // * 5 * max_jerk_x;
 //drum = pm.djembe(drum_freq,0,0.5,0.5,(jerk_x > 0.05) & (acc_y < (-1 * acc_z)));
 drum = ((os.saw2(drum_freq) * 0.8) + (no.noise * 0.2)) : BPF(drum_freq * filter_const, 40) : (_ * en.ar(0.02, 0.2, (jerk_x > 0.04) & (acc_y < (-1 * acc_z)))) : ba.ramp(ma.SR/100, max_jerk_x) * _;
+=======
+max_rot_z = ba.peakholder(ma.SR * 0.3, abs(rot_z));
+
+drum_freq = 60 + (max_rot_z * 500) : ba.ramp(ma.SR * 0.01);// + (max_rot_z);
+
+drum = ((os.saw2(drum_freq) * 0.8) + (no.noise * 0.2)) : BPF(drum_freq * filter_const, 40) : (_ * en.ar(0.05, 0.15, (jerk_x > 0.04) & (acc_y < (-1 * acc_z)))) : ba.ramp(ma.SR*0.01, max_jerk_x * 10) * _;
+>>>>>>> Stashed changes
 
 
 process = hgroup("strisy",
