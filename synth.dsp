@@ -106,11 +106,18 @@ phas_to_sqr(phasor) = ba.tabulate(0, helper, 500, 0, 1, phasor).lin with {
     helper(phasor_in) = ba.if(phasor_in < 0.5, 1, -1);
 };
 
+lock_max_amp(y, pres) = peak with {
+    lowest_val = ba.peakhold(((pres' <= RELEASE_THRESHOLD) & (pres > RELEASE_THRESHOLD) != 1), -1 * y);
+    highest_val = ba.peakhold(((pres' <= RELEASE_THRESHOLD) & (pres > RELEASE_THRESHOLD)) != 1, y);
+    peak = ba.if(highest_val > lowest_val, highest_val, -1 * lowest_val);
+};
+
 // Determines the shape of the sound waves.
 tamborGen(pres, vpres, freq, y, amp, state) = wave with {
     // Control modifier    
     scale_y = easeInOutSine(y);
     ampdiff = pres - amp;
+    lock_y = lock_max_amp(y, pres) * 2;
 
     // phasors for the different harmonics.
     quarter = os.phasor(1, freq/4);
@@ -122,7 +129,8 @@ tamborGen(pres, vpres, freq, y, amp, state) = wave with {
     // Main wave.
     triWave = phas_to_tri(full);
     sawWave = phas_to_saw(full);
-    saw_wave_amp = max(min(((scale_y * -0.8) + 0.2)  + (ampdiff/2), 1), 0);
+    saw_y = ba.if(pres <= RELEASE_THRESHOLD, lock_y, scale_y);
+    saw_wave_amp = max(min(((saw_y * -0.8) + 0.2)  + (ampdiff/2), 1), 0);
     tri_wave_amp = 1 - (saw_wave_amp);
     formed_wave = ((triWave * tri_wave_amp) + (sawWave * saw_wave_amp)) : ba.ramp(ma.SR * 0.0003);
 
@@ -301,10 +309,8 @@ change_in(x) = x - x';
 
 jerk = abs(acc_x) : change_in;
 
-process = jerk * os.osc(440);
+//process = en.ar(0.01, 0.5, jerk > 0.1) * os.osc(440) * 0.2;
 
-/*
 process = hgroup("strisy",
         sum(n, voicecount, vgroup("v%n", (note,pres,vpres,but_x,but_y)) : voice) // : vgroup("v%n", vmeter))
         * 1.37 : HPF(K_f0(80),1.31) );
-        */
