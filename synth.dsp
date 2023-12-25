@@ -136,7 +136,7 @@ tamborGen(pres, vpres, freq, y, amp, state) = wave with {
     formed_wave = ((triWave * tri_wave_amp) + (sawWave * saw_wave_amp)) : ba.ramp(ma.SR * 0.0003);
 
     // Flutish sound. Ment to soften when pressed lightly.
-    white_note = no.noise : BPF(filter_const * freq, 1000);
+    white_note = no.noise : BPF(filter_const * freq, 1000) : (_ * 1);
     white_amp = min(1, ba.if(amp < 0.1, 1 - (amp * 10), 0) + max(0.05, 0.1 - abs(vpres)));
 
     // subharmonics
@@ -315,15 +315,15 @@ max_y = ba.peakholder(ma.SR, abs(acc_y));
 max_z = ba.peakholder(ma.SR, abs(acc_z));
 
 jerk_rot_z = rot_z : change_in;
-max_rot_z = ba.peakholder(ma.SR * 0.1, abs(rot_z));
-drum_freq = 60 + (max_rot_z * 500);// + (max_rot_z);
+max_rot_z = ba.peakholder(ma.SR * 0.3, abs(rot_z));
+drum_freq = 60 + (max_rot_z * 500) : ba.ramp(ma.SR * 0.01);// + (max_rot_z);
 
 //drum = no.noise : BPF(drum_freq * filter_const, 5) : (_ * en.ar(0.02, 0.15, (jerk_x > 0.05) & (acc_y < (-1 * acc_z)))) : (_ * 10 * (max_jerk_x));
 //drum = sy.popFilterDrum(drum_freq, 40, (jerk_x > 0.05) & (acc_y < (-1 * acc_z))); // * 5 * max_jerk_x;
 //drum = pm.djembe(drum_freq,0,0.5,0.5,(jerk_x > 0.05) & (acc_y < (-1 * acc_z)));
-drum = ((os.saw2(drum_freq) * 0.8) + (no.noise * 0.2)) : BPF(drum_freq * filter_const, 40) : (_ * en.ar(0.02, 0.2, (jerk_x > 0.04) & (acc_y < (-1 * acc_z)))) : ba.ramp(ma.SR/100, max_jerk_x) * _;
+drum = ((os.saw2(drum_freq) * 0.8) + (no.noise * 0.2)) : BPF(drum_freq * filter_const, 40) : (_ * en.ar(0.05, 0.15, (jerk_x > 0.04) & (acc_y < (-1 * acc_z)))) : ba.ramp(ma.SR*0.01, max_jerk_x) * _;
 
 
 process = hgroup("strisy",
-        sum(n, voicecount, vgroup("v%n", (note,pres,vpres,but_x,but_y)) : voice) // : vgroup("v%n", vmeter))
-        * 1.37 : HPF(K_f0(80),1.31) ) : (_ + drum);
+        sum(n, voicecount, vgroup("v%n", (note,pres,vpres,but_x,but_y)) : voice))
+        : (_ + drum);
