@@ -248,22 +248,11 @@ jerk_x = abs(acc_x) : change_in;
 
 max_jerk_x = ba.peakholder(ma.SR * 0.3, jerk_x);
 
-<<<<<<< Updated upstream
 jerk_rot_z = rot_z : change_in;
 max_rot_z = ba.peakholder(ma.SR * 0.1, abs(rot_z));
 drum_freq = 60 + (max_rot_z * 500);// + (max_rot_z);
 
-//drum = no.noise : BPF(drum_freq * filter_const, 5) : (_ * en.ar(0.02, 0.15, (jerk_x > 0.05) & (acc_y < (-1 * acc_z)))) : (_ * 10 * (max_jerk_x));
-//drum = sy.popFilterDrum(drum_freq, 40, (jerk_x > 0.05) & (acc_y < (-1 * acc_z))); // * 5 * max_jerk_x;
-//drum = pm.djembe(drum_freq,0,0.5,0.5,(jerk_x > 0.05) & (acc_y < (-1 * acc_z)));
 drum = ((os.saw2(drum_freq) * 0.8) + (no.noise * 0.2)) : BPF(drum_freq * filter_const, 40) : (_ * en.ar(0.02, 0.2, (jerk_x > 0.04) & (acc_y < (-1 * acc_z)))) : ba.ramp(ma.SR/100, max_jerk_x) * _;
-=======
-max_rot_z = ba.peakholder(ma.SR * 0.3, abs(rot_z));
-
-drum_freq = 60 + (max_rot_z * 500) : ba.ramp(ma.SR * 0.01);// + (max_rot_z);
-
-drum = ((os.saw2(drum_freq) * 0.8) + (no.noise * 0.2)) : BPF(drum_freq * filter_const, 40) : (_ * en.ar(0.05, 0.15, (jerk_x > 0.04) & (acc_y < (-1 * acc_z)))) : ba.ramp(ma.SR*0.01, max_jerk_x * 10) * _;
->>>>>>> Stashed changes
 
 
 process = hgroup("strisy",
