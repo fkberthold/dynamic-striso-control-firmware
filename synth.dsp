@@ -392,15 +392,12 @@ timbre_gen(pres, vpres, freq, y, amp) = wave with {
     };
 
     // By adding sub harmonics, it makes the sound more full.
-    //  We cut them out below 80hz, because it starts to move
-    //  into the zone where 1/4 of the wave is more beat than
-    //  tone.
     add_sub_harmonics(wave_in) = wave_out with {
         half = os.phasor(1, freq/2);
         quarter = os.phasor(1, freq/4);
 
         sub_harms = (phas_to_saw(quarter) * 0.2) + (phas_to_tri(half) * 0.8);
-        sub_harm_amp = (ba.if(freq >= 80, ba.if(amp < 0.1, amp, 0.1), 0) * ((scale_y + 1) / 2));
+        sub_harm_amp = ba.if(amp < 0.1, amp, 0.1) * ((scale_y + 1) / 2);
         wave_out = (wave_in * (1 - sub_harm_amp)) + (sub_harms * sub_harm_amp);
     };
 
@@ -439,5 +436,8 @@ with {
 // The main process function reads in the values from each of the individual
 //  buttons pressed, transforms them via the `voice` function, and then
 //  sums them together.
+// I suspect that the High Pass Filter removes some static and clicks, the original
+//  was set at 80hz, but where the Striso goes well below 80hz, I've dropped it to 40hz.
 process = hgroup("strisy",
-        sum(n, VOICE_COUNT, vgroup("v%n", (note,pres,vpres,but_x,but_y)) : voice));
+        sum(n, VOICE_COUNT, vgroup("v%n", (note,pres,vpres,but_x,but_y)) : voice)
+        * 1.37 : HPF(K_f0(40),1.31)); 
