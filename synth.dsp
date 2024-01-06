@@ -416,7 +416,7 @@ timbre_gen(pres, vpres, freq, y, amp) = wave with {
 //      but_x: The pressure on the x(left/right) axis.
 //      but_y: The pressure on the y(forward/backward) axis.
 // Returns: The sound wave.
-voice(note,pres,vpres,but_x,but_y) = full_sound(level)
+voice(note,pres,vpres,but_x,but_y) = full_sound(level) //full_sound(level)
 with {
     scaled_pres = ease_in_out_sine(real_pres);
     freq = note_2_freq(note);
@@ -428,7 +428,7 @@ with {
     real_pres = ba.if((time_since_pressure_change > 0.5) & (vpres == 0), 0, pres);
 
     ampl_res = get_amplitude(scaled_pres, vpres);
-    level = ampl_res : LPF(K_f0(20),0.71) : min(0.99);
+    level = ampl_res : ba.ramp(ma.SR * 0.05);
 
     full_sound(ampl) = ampl <: (_, timbre_gen(scaled_pres, vpres, freq, but_y)) :  *;
 };
