@@ -151,11 +151,11 @@ PLUCK = 6;
 // Time constants for the state machine.
 //  this influences how long the stages
 //  are in seconds.
-ATTACK_T = 0.1 * ma.SR;
-DECAY_T = 0.4 * ma.SR;
+ATTACK_T = 0.2 * ma.SR;
+DECAY_T = 0.5 * ma.SR;
 RELEASE_T = 0.15 * ma.SR;
 SUSTAIN_T = 0.2 * ma.SR;
-PLUCK_T = 0.75 * ma.SR;
+PLUCK_T = 0.8 * ma.SR;
 
 // Determines when the note is released.
 RELEASE_THRESHOLD = 0.003;
@@ -293,7 +293,7 @@ calculate_curve(state, pressure, min_velocity, max_velocity, time_base, max_pres
 //  Returns: The amplitude.
 get_amplitude(pres, vpres) = (pres) : (get_amplitude_rec ~ (_, _)) : (!, _) with {
     min_velocity = get_neg_velocity_abs(vpres, pres) : min(1, _);
-    max_velocity = get_pos_velocity_abs(vpres, pres) : min(1, _);
+    max_velocity = (get_pos_velocity_abs(vpres, pres) * 0.7) : min(1, _);
     get_amplitude_rec(prev_state, prev_amp, pressure) = (new_state, amplitude) with {
         max_pressure = max_pres_amp(prev_state, pressure, prev_amp);
         start_time = time_changed(prev_state);
