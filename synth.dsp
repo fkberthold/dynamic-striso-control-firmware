@@ -443,7 +443,7 @@ drum_freq = 60 + (max_rot_z * 1000);
 
 drum = drum_sound with {
     drum_tambor = ((os.saw2(drum_freq) * 0.8) + (no.noise * 0.2)) : BPF(K_f0(drum_freq), 40); 
-    drum_amplitude = ((en.ar(0.02, 0.2, (jerk_x > 0.04) & (acc_y < (-1 * acc_z)))) * ba.ramp(ma.SR/100, max_jerk_x)) : ba.ramp(ma.SR/5000);
+    drum_amplitude = ((en.ar(0.02, 0.2, (jerk_x > 0.04) & (acc_y < (-1 * acc_z)))) * ba.ramp(ma.SR/100, max_jerk_x)) : ba.ramp(ma.SR/100);
     drum_sound = drum_tambor * drum_amplitude;
 };
 
