@@ -427,7 +427,7 @@ class mydsp : public dsp {
 		fConst17 = (1.0f / max(1.0f, fConst16));
 		fConst18 = (0.3f * fConst0);
 		fConst19 = (1e+02f / fConst0);
-		fConst20 = (1e+04f / fConst0);
+		fConst20 = (5e+03f / fConst0);
 		fConst21 = (0.10759955f / fConst0);
 		fConst22 = (4.0878997f / fConst0);
 		fConst23 = (2.0439498f / fConst0);
